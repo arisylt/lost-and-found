@@ -1,13 +1,3 @@
-/*
- * FILE:         src/main.cpp
- * PEMILIK:      Muflih
- * TUJUAN:       Menyatukan semua bagian program dan menjalankan menu utama.
- * BERGANTUNG:   seluruh bagian dalam file ini
- * DIPAKAI OLEH: sistem operasi saat program dijalankan
- * URUTAN KERJA: bagian data sampai claim_screen, lalu menu utama
- * KONSEP YANG DIPERLUKAN: while, if/else, int, bool, fungsi
- */
-
 #include <iostream>
 #include <string>
 #include <cctype>
@@ -16,18 +6,9 @@
 
 using namespace std;
 
-// ============ [PEMILIK Muflih] data ============
-
-/*
- * FILE:         src/models/data.cpp
- * PEMILIK:      Muflih
- * TUJUAN:       Menyimpan semua data program dalam array paralel global.
- * BERGANTUNG:   string dari src/main.cpp
- * DIPAKAI OLEH: semua modul
- * URUTAN KERJA: pahami konstanta, data pengguna, data barang, lalu loadDemoData
- * KONSEP YANG DIPERLUKAN: array, string, int, bool
- */
-
+// Haris
+// Haris
+// ============ data ============
 
 const int MAX_USERS = 100;
 const int MAX_FOUND = 200;
@@ -88,14 +69,14 @@ int claimCount = 0;
 int searchResult[MAX_FOUND];
 int searchResultCount = 0;
 
-// PEMILIK TODO: Haris
 // FUNGSI: loadDemoData   (flowchart: "Data kosong?" -> "Isi contoh")
 // TUJUAN: menyediakan dua pengguna dan dua barang temuan agar program dapat
 // dicoba tanpa registrasi.
 // TODO:
-//  [*] 1. Hanya isi data ini saat userCount, foundCount, dan lostCount masih 0.
-//  [*] 2. Isi dua pengguna pada indeks 0 dan 1, termasuk password, nomor,
-//  gagal=0, dan locked=false. [*] 3. Isi dua barang temuan pada indeks 0 dan 1;
+//  [ ] 1. Hanya isi data ini saat userCount, foundCount, dan lostCount masih 0.
+//  [ ] 2. Isi dua pengguna pada indeks 0 dan 1, termasuk password, nomor,
+//  gagal=0, dan locked=false.
+//  [ ] 3. Isi dua barang temuan pada indeks 0 dan 1;
 //  reporter harus menunjuk indeks pengguna yang valid. [ ] 4. Isi semua array
 //  pasangan untuk setiap barang, beri STATUS_AVAILABLE, lalu atur userCount dan
 //  foundCount.
@@ -104,76 +85,64 @@ int searchResultCount = 0;
 // menaikkan count sebelum semua pasangan terisi. SELESAI JIKA: [ ] M-UI-1
 // lulus. JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor
 // semua pemilik modul.
-void loadDemoData() {
-    if (userCount == 0 && foundCount == 0 && lostCount == 0) {
-        
-        userName[0] = "Azhri";
-        userPassword[0] = "Azhri123"; 
-        userPhone[0] = "081234567890";
-        userFailed[0] = 0;
-        userLocked[0] = false;
+void loadDemoData()
+{
+  if (userCount == 0 && foundCount == 0 && lostCount == 0)
+  {
 
-        userName[1] = "Arya";
-        userPassword[1] = "Arya123";
-        userPhone[1] = "089876543210";
-        userFailed[1] = 0;
-        userLocked[1] = false;
+    userName[0] = "Azhri";
+    userPassword[0] = "Azhri123";
+    userPhone[0] = "081234567890";
+    userFailed[0] = 0;
+    userLocked[0] = false;
 
-        foundReporter[0] = 0;
-        foundName[0] = "Payung Hitam";
-        foundCategory[0] = "Aksesori";
-        foundLocation[0] = "Kantin Utama";
-        foundDate[0] = "2026-10-25";
-        foundDescription[0] = "Payung lipat warna hitam merk standar";
-        foundSecret[0] = "Ada stiker kecil bergambar bintang di pegangannya";
-        foundStatus[0] = STATUS_AVAILABLE;
+    userName[1] = "Arya";
+    userPassword[1] = "Arya123";
+    userPhone[1] = "089876543210";
+    userFailed[1] = 0;
+    userLocked[1] = false;
 
-        foundReporter[1] = 1;
-        foundName[1] = "Dompet Kulit Coklat";
-        foundCategory[1] = "Dompet";
-        foundLocation[1] = "Parkiran Fakultas";
-        foundDate[1] = "2026-10-26";
-        foundDescription[1] = "Dompet berisi kartu identitas dan beberapa kartu penting";
-        foundSecret[1] = "Ada foto pelajar di dalam selipan kartu";
-        foundStatus[1] = STATUS_AVAILABLE;
+    foundReporter[0] = 0;
+    foundName[0] = "Payung Hitam";
+    foundCategory[0] = "Aksesori";
+    foundLocation[0] = "Kantin Utama";
+    foundDate[0] = "2026-10-25";
+    foundDescription[0] = "Payung lipat warna hitam merk standar";
+    foundSecret[0] = "Ada stiker kecil bergambar bintang di pegangannya";
+    foundStatus[0] = STATUS_AVAILABLE;
 
-        userCount = 2;
-        foundCount = 2;
-    }
+    foundReporter[1] = 1;
+    foundName[1] = "Dompet Kulit Coklat";
+    foundCategory[1] = "Dompet";
+    foundLocation[1] = "Parkiran Fakultas";
+    foundDate[1] = "2026-10-26";
+    foundDescription[1] = "Dompet berisi kartu identitas dan beberapa kartu penting";
+    foundSecret[1] = "Ada foto pelajar di dalam selipan kartu";
+    foundStatus[1] = STATUS_AVAILABLE;
+
+    userCount = 2;
+    foundCount = 2;
+  }
 }
 
-// ============ [PEMILIK Haris] string_utils ============
-
-/*
- * FILE:         src/utils/string_utils.cpp
- * PEMILIK:      Haris
- * TUJUAN:       Menyediakan bantuan teks tanpa layar dan tanpa file.
- * BERGANTUNG:   string dan cctype dari src/main.cpp
- * DIPAKAI OLEH: auth, items, claims, storage, ui/input_helpers
- * URUTAN KERJA: isAllDigits, trim, toLower, sanitizeField, containsIgnoreCase,
- * splitLine KONSEP YANG DIPERLUKAN: string, array, for, if/else, return
- */
+// ============ string_utils ============
 
 // FUNGSI: trim   (flowchart: "Teks masuk" -> "Buang spasi tepi")
 // TUJUAN: menghapus spasi di awal dan akhir teks.
-// TODO:
-//  [*] 1. Mulai indeks kiri dari 0 dan maju selama karakter adalah spasi.
-//  [*] 2. Mulai indeks kanan dari panjang teks dan mundur selama karakter
-//  adalah spasi. [*] 3. Return bagian dari kiri sampai sebelum kanan; jika
-//  semua spasi return string kosong.
+// Penjelasan: Fungsi ini mengembalikan teks tanpa spasi di awal dan akhir.
 // CONTOH: "  buku  " -> "buku".
-// HATI-HATI: teks kosong dan indeks akhir string sering membuat pemula keluar
-// batas array. SELESAI JIKA: [ ] M-ITEM-1 lulus. JANGAN ubah nama, parameter,
-// atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-std::string trim(std::string s) {
+std::string trim(std::string s)
+{
   int left = 0;
   int right = s.length();
 
-  while (left < right && s[left] == ' ') {
+  while (left < right && s[left] == ' ')
+  {
     left++;
   }
 
-  while (right > left && s[right - 1] == ' ') {
+  while (right > left && s[right - 1] == ' ')
+  {
     right--;
   }
 
@@ -182,17 +151,13 @@ std::string trim(std::string s) {
 
 // FUNGSI: toLower   (flowchart: "Teks" -> "Huruf kecil")
 // TUJUAN: menyamakan kapitalisasi untuk perbandingan.
-// TODO:
-//  [*] 1. Loop setiap karakter pada salinan s.
-//  [*] 2. Ubah huruf dengan tolower dari cctype.
-//  [*] 3. Return salinan yang sudah diubah.
+// Penjelasan: Fungsi ini mengubah setiap huruf dalam salinan teks menjadi huruf kecil.
 // CONTOH: "BukuA" -> "bukua".
-// HATI-HATI: jangan mengubah data asli di array ketika hanya ingin
-// membandingkan. SELESAI JIKA: [ ] M-AUTH-1 lulus. JANGAN ubah nama, parameter,
-// atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-std::string toLower(std::string s) {
+std::string toLower(std::string s)
+{
   int length = s.length();
-  for (int i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++)
+  {
     s[i] = tolower(s[i]);
   }
 
@@ -201,37 +166,35 @@ std::string toLower(std::string s) {
 
 // FUNGSI: containsIgnoreCase   (flowchart: "Normalisasi" -> "Cari kata")
 // TUJUAN: mencari keyword tanpa membedakan huruf besar dan kecil.
-// TODO:
-//  [*] 1. Ubah text dan keyword memakai toLower.
-//  [*] 2. Jika keyword kosong, return true agar filter kosong diabaikan.
-//  [*] 3. Loop posisi text dan cek apakah bagian text cocok seluruhnya dengan
-//  keyword. [*] 4. Return true saat cocok, atau false setelah semua posisi
-//  diperiksa.
+// Penjelasan: Fungsi ini mencari keyword tanpa membedakan huruf besar dan kecil.
 // CONTOH: "Tas Biru", "biru" -> true.
-// HATI-HATI: jangan mencari foundSecret; detail rahasia tidak boleh ditampilkan
-// atau dipakai pencarian layar. SELESAI JIKA: [ ] M-ITEM-4 lulus. JANGAN ubah
-// nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-bool containsIgnoreCase(std::string text, std::string keyword) {
+bool containsIgnoreCase(std::string text, std::string keyword)
+{
   text = toLower(text);
   keyword = toLower(keyword);
 
-  if (keyword == "") {
+  if (keyword == "")
+  {
     return true;
   }
 
   int keywordLength = keyword.length();
   int textLength = text.length();
-  for (int i = 0; i + keywordLength <= textLength; i++) {
+  for (int i = 0; i + keywordLength <= textLength; i++)
+  {
     bool match = true;
 
-    for (int j = 0; j < keywordLength; j++) {
-      if (text[i + j] != keyword[j]) {
+    for (int j = 0; j < keywordLength; j++)
+    {
+      if (text[i + j] != keyword[j])
+      {
         match = false;
         break;
       }
     }
 
-    if (match) {
+    if (match)
+    {
       return true;
     }
   }
@@ -241,18 +204,15 @@ bool containsIgnoreCase(std::string text, std::string keyword) {
 // FUNGSI: sanitizeField   (flowchart: "Teks input" -> "Teks aman file")
 // TUJUAN: mengganti pemisah file dan baris baru agar satu record tetap satu
 // baris.
-// TODO:
-//  [*] 1. Loop setiap karakter s.
-//  [*] 2. Jika karakter adalah '|', '\n', atau '\r', ganti dengan '/'.
-//  [*] 3. Return s yang sudah aman.
+// Penjelasan: Fungsi ini mengganti karakter pemisah dan baris baru agar teks aman disimpan.
 // CONTOH: "A|B\nC" -> "A/B/C".
-// HATI-HATI: sanitasi berlaku untuk semua teks yang disimpan, bukan untuk angka
-// atau indeks. SELESAI JIKA: [ ] M-STORAGE-1 lulus. JANGAN ubah nama,
-// parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-std::string sanitizeField(std::string s) {
+std::string sanitizeField(std::string s)
+{
   int length = s.length();
-  for (int i = 0; i < length; i++) {
-    if (s[i] == '|' || s[i] == '\n' || s[i] == '\r') {
+  for (int i = 0; i < length; i++)
+  {
+    if (s[i] == '|' || s[i] == '\n' || s[i] == '\r')
+    {
       s[i] = '/';
     }
   }
@@ -262,25 +222,22 @@ std::string sanitizeField(std::string s) {
 
 // FUNGSI: isAllDigits   (flowchart: "Teks" -> "Semua angka?")
 // TUJUAN: memeriksa bahwa string tidak kosong dan semua karakternya angka.
-// TODO:
-//  [*] 1. Jika s kosong, return false.
-//  [*] 2. Loop setiap karakter dan cek dengan isdigit dari cctype.
-//  [*] 3. Return false pada karakter bukan angka; return true setelah loop
-//  selesai.
+// Penjelasan: Fungsi ini memastikan teks tidak kosong dan seluruh karakternya berupa angka.
 // CONTOH: "08123" -> true; "08-123" -> false.
-// HATI-HATI: spasi bukan angka; jangan menerima string kosong sebagai nomor
-// telepon valid. SELESAI JIKA: [ ] M-AUTH-2 lulus. JANGAN ubah nama, parameter,
-// atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-bool isAllDigits(std::string s) {
-  if (s == "") {
+bool isAllDigits(std::string s)
+{
+  if (s == "")
+  {
     return false;
   }
 
   int length = s.length();
-  for (int i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++)
+  {
     bool isDigit = isdigit(s[i]);
 
-    if (!isDigit) {
+    if (!isDigit)
+    {
       return false;
     }
   }
@@ -290,37 +247,35 @@ bool isAllDigits(std::string s) {
 
 // FUNGSI: splitLine   (flowchart: "Baris" -> "Field-field")
 // TUJUAN: memecah satu baris file ke array parts untuk modul storage.
-// TODO:
-//  [*] 1. Siapkan string bagian dan jumlah=0.
-//  [*] 2. Loop karakter line; saat delimiter ditemukan, simpan bagian bila
-//  jumlah masih kurang dari maxParts. [*] 3. Kosongkan bagian dan lanjutkan;
-//  sesudah loop simpan bagian terakhir termasuk bila kosong. [*] 4. Return
-//  jumlah bagian yang benar-benar disimpan.
+// Penjelasan: Fungsi ini memecah satu baris menjadi field berdasarkan delimiter hingga batas array.
 // CONTOH: "1|andi|08", '|', parts, 4 -> 3 dan parts berisi "1", "andi", "08".
-// HATI-HATI: jangan menulis melewati parts[maxParts-1]; field terakhir kosong
-// tetap penting untuk mendeteksi baris rusak. SELESAI JIKA: [ ] M-STORAGE-1
-// lulus. JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor
-// semua pemilik modul.
 int splitLine(std::string line, char delimiter, std::string parts[],
-              int maxParts) {
+              int maxParts)
+{
   std::string part = "";
   int amount = 0;
 
   int length = line.length();
-  for (int i = 0; i < length; i++) {
-    if (line[i] == delimiter) {
-      if (amount < maxParts) {
+  for (int i = 0; i < length; i++)
+  {
+    if (line[i] == delimiter)
+    {
+      if (amount < maxParts)
+      {
         parts[amount] = part;
         amount++;
       }
 
       part = "";
-    } else {
+    }
+    else
+    {
       part += line[i];
     }
   }
 
-  if (amount < maxParts) {
+  if (amount < maxParts)
+  {
     parts[amount] = part;
     amount++;
   }
@@ -328,24 +283,25 @@ int splitLine(std::string line, char delimiter, std::string parts[],
   return amount;
 }
 
-// ============ [PEMILIK Muflih] date_utils ============
+// ============ date_utils ============
 
-/*
- * FILE:         src/utils/date_utils.cpp
- * PEMILIK:      Muflih
- * TUJUAN:       Memeriksa dan menyediakan tanggal untuk laporan barang.
- * BERGANTUNG:   string dan ctime dari src/main.cpp
- * DIPAKAI OLEH: items/items.cpp
- * URUTAN KERJA: isValidDate, getTodayDate, isFutureDate
- * KONSEP YANG DIPERLUKAN: string, if/else, return
- */
-
-bool isLeapYear(int year) {
+// FUNGSI: isLeapYear   (flowchart: "Tahun" -> "Habis dibagi?" -> "Kabisat/tidak")
+// TUJUAN: menentukan apakah sebuah tahun merupakan tahun kabisat.
+// Penjelasan: Fungsi ini memakai aturan tahun habis dibagi 400 atau habis dibagi 4 tetapi bukan 100.
+// CONTOH: 2024 -> true; 2025 -> false.
+bool isLeapYear(int year)
+{
   return (year % 400 == 0) || (year % 4 == 0 && year % 100 != 0);
 }
 
-int daysInMonth(int month, int year) {
-  switch (month) {
+// FUNGSI: daysInMonth   (flowchart: "Bulan+tahun" -> "Jumlah hari")
+// TUJUAN: mengembalikan jumlah hari pada bulan tertentu.
+// Penjelasan: Fungsi ini memilih jumlah hari sesuai bulan dan memakai isLeapYear untuk Februari.
+// CONTOH: 2, 2024 -> 29; 4, 2025 -> 30.
+int daysInMonth(int month, int year)
+{
+  switch (month)
+  {
   case 1:
   case 3:
   case 5:
@@ -362,7 +318,8 @@ int daysInMonth(int month, int year) {
     return 30;
 
   case 2:
-    if (isLeapYear(year)) {
+    if (isLeapYear(year))
+    {
       return 29;
     }
     return 28;
@@ -374,31 +331,25 @@ int daysInMonth(int month, int year) {
 
 // FUNGSI: isValidDate   (flowchart: "Tanggal" -> "Format?" -> "Bulan/hari?")
 // TUJUAN: memeriksa format YYYY-MM-DD dan batas hari tiap bulan.
-// TODO:
-//  [*] 1. Cek panjang tepat 10 dan karakter ke-4 serta ke-7 adalah '-'.
-//  [*] 2. Pastikan delapan posisi angka lainnya adalah digit.
-//  [*] 3. Ubah digit tahun, bulan, dan hari ke int secara manual.
-//  [*] 4. Tolak bulan di luar 1..12; tentukan jumlah hari bulan itu dengan
-//  if/else. [*] 5. Februari boleh memakai aturan kabisat atau cukup 28 hari
-//  untuk versi awal; return apakah hari valid.
+// Penjelasan: Fungsi ini memeriksa format YYYY-MM-DD serta batas hari pada setiap bulan.
 // CONTOH: "2025-02-30" -> false; "2025-02-28" -> true.
-// HATI-HATI: tanggal yang bentuknya benar belum tentu ada di kalender.
-// SELESAI JIKA: [ ] M-ITEM-2 lulus.
-// JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
-// pemilik modul.
-bool isValidDate(std::string date) {
+bool isValidDate(std::string date)
+{
   if (date.length() != 10)
     return false;
 
   if (date[4] != '-' || date[7] != '-')
     return false;
 
-  for (int i = 0; i < 10; i++) {
-    if (i == 4 || i == 7) {
+  for (int i = 0; i < 10; i++)
+  {
+    if (i == 4 || i == 7)
+    {
       continue;
     }
 
-    if (date[i] < '0' || date[i] > '9') {
+    if (date[i] < '0' || date[i] > '9')
+    {
       return false;
     }
   }
@@ -416,7 +367,8 @@ bool isValidDate(std::string date) {
   if (month < 1 || month > 12)
     return false;
 
-  if (day < 1 || day > daysInMonth(month, year)) {
+  if (day < 1 || day > daysInMonth(month, year))
+  {
     return false;
   }
 
@@ -426,16 +378,10 @@ bool isValidDate(std::string date) {
 // FUNGSI: getTodayDate   (flowchart: "Jam komputer" -> "YYYY-MM-DD")
 // TUJUAN: mengembalikan tanggal lokal hari ini dengan format yang sama seperti
 // input laporan.
-// TODO:
-//  [*] 1. Bagian ini sudah jadi; jangan diubah saat mengerjakan validasi
-//  tanggal.
+// Penjelasan: Fungsi ini mengambil tanggal lokal saat ini dalam format YYYY-MM-DD.
 // CONTOH: pada 2025-08-17 -> "2025-08-17".
-// HATI-HATI: hasil mengikuti jam komputer, bukan tanggal dari internet.
-// SELESAI JIKA: [ ] M-ITEM-3 lulus.
-// JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
-// pemilik modul.
-std::string getTodayDate() {
-  // bagian ini sudah jadi karena memakai <ctime> yang belum diajarkan
+std::string getTodayDate()
+{
   time_t now = time(0);
   tm *local = localtime(&now);
   char result[11];
@@ -445,16 +391,10 @@ std::string getTodayDate() {
 
 // FUNGSI: isFutureDate   (flowchart: "Tanggal valid?" -> "Bandingkan hari ini")
 // TUJUAN: menentukan apakah tanggal laporan lebih besar dari tanggal hari ini.
-// TODO:
-//  [*] 1. Jika isValidDate(date) false, return false; validasi utama tetap
-//  dilakukan add item. [*] 2. Ambil today dengan getTodayDate(). [*] 3.
-//  Bandingkan date > today karena dua string YYYY-MM-DD sama panjang dan
-//  berurutan tahun-bulan-hari. [*] 4. Return hasil perbandingan.
+// Penjelasan: Fungsi ini membandingkan tanggal valid dengan tanggal hari ini untuk mendeteksi tanggal masa depan.
 // CONTOH: jika hari ini "2025-08-17", "2025-08-18" -> true.
-// HATI-HATI: perbandingan teks ini hanya aman jika format selalu YYYY-MM-DD
-// lengkap dengan nol di depan. SELESAI JIKA: [ ] M-ITEM-3 lulus. JANGAN ubah
-// nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-bool isFutureDate(std::string date) {
+bool isFutureDate(std::string date)
+{
   if (isValidDate(date) == false)
     return false;
 
@@ -463,62 +403,27 @@ bool isFutureDate(std::string date) {
   return date > today;
 }
 
-// ============ [PEMILIK Haris] id_utils ============
-
-/*
- * FILE:         src/utils/id_utils.cpp
- * PEMILIK:      Haris
- * TUJUAN:       Mengubah indeks array menjadi nomor layar dan sebaliknya.
- * BERGANTUNG:   tidak ada
- * DIPAKAI OLEH: ui/item_screen.cpp dan ui/claim_screen.cpp
- * URUTAN KERJA: toDisplayNo, toIndex
- * KONSEP YANG DIPERLUKAN: int, return
- */
+// ============ id_utils ============
 
 // FUNGSI: toDisplayNo   (flowchart: "Indeks" -> "+1" -> "Nomor layar")
 // TUJUAN: mengubah indeks mulai 0 menjadi nomor yang ramah pengguna mulai 1.
-// TODO:
-//  [*] 1. Return index + 1.
+// Penjelasan: Fungsi ini mengubah indeks array mulai 0 menjadi nomor tampilan mulai 1.
 // CONTOH: 0 -> 1.
-// HATI-HATI: indeks 0 valid, jadi jangan menganggapnya berarti tidak ada data.
-// SELESAI JIKA: [ ] M-ITEM-4 lulus.
-// JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
-// pemilik modul.
 int toDisplayNo(int index) { return index + 1; }
 
 // FUNGSI: toIndex   (flowchart: "Nomor layar" -> "-1" -> "Indeks")
 // TUJUAN: mengubah nomor layar mulai 1 kembali menjadi indeks array mulai 0.
-// TODO:
-//  [*] 1. Return displayNo - 1.
+// Penjelasan: Fungsi ini mengubah nomor tampilan mulai 1 kembali menjadi indeks array mulai 0.
 // CONTOH: 1 -> 0.
-// HATI-HATI: layar harus memastikan nomor minimal 1 sebelum hasil ini dipakai.
-// SELESAI JIKA: [ ] M-ITEM-4 lulus.
-// JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
-// pemilik modul.
 int toIndex(int displayNo) { return displayNo - 1; }
 
-// ============ [PEMILIK Mudhofar] input_helpers ============
-
-/*
- * FILE:         src/ui/input_helpers.cpp
- * PEMILIK:      Mudhofar
- * TUJUAN:       Membaca dan menampilkan input terminal yang dipakai semua layar
- * UI. BERGANTUNG:   utils/string_utils.cpp DIPAKAI OLEH: main.cpp dan seluruh
- * file ui URUTAN KERJA: readLine, readInt, printHeader, pauseScreen KONSEP YANG
- * DIPERLUKAN: string, int, while, if/else, fungsi, return
- */
+// ============ input_helpers ============
 
 // FUNGSI: readLine   (flowchart: "Prompt" -> "getline" -> "Teks")
 // TUJUAN: menampilkan prompt lalu membaca satu baris lengkap, termasuk spasi.
-// TODO:
-//  [*] 1. Tampilkan prompt dengan cout.
-//  [*] 2. Buat string hasil dan baca memakai getline(cin, hasil).
-//  [*] 3. Return hasil.
 // CONTOH: prompt "Nama: ", input "Tas Biru" -> "Tas Biru".
-// HATI-HATI: jangan pakai cin >> karena nama dan deskripsi boleh memiliki
-// spasi. SELESAI JIKA: [ ] M-UI-1 lulus. JANGAN ubah nama, parameter, atau tipe
-// return fungsi ini tanpa lapor semua pemilik modul.
-std::string readLine(std::string prompt) {
+std::string readLine(std::string prompt)
+{
   cout << prompt;
   std::string result;
   getline(cin, result);
@@ -528,27 +433,25 @@ std::string readLine(std::string prompt) {
 // FUNGSI: readInt   (flowchart: "Input teks" -> "Angka valid?" -> "Dalam
 // batas?") TUJUAN: membaca bilangan dalam batas tanpa memakai konversi yang
 // belum dipelajari.
-// TODO:
-//  [*] 1. Panggil readLine(prompt).
-//  [*] 2. Jika bukan isAllDigits, tampilkan pesan dan ulangi.
-//  [*] 3. Ubah tiap digit: hasil = hasil * 10 + (huruf - '0').
-//  [*] 4. Jika hasil di luar minValue..maxValue, tampilkan pesan dan ulangi;
-//  jika valid return hasil.
 // CONTOH: input "2" dengan batas 1..3 -> 2; input "dua" -> diminta ulang.
-// HATI-HATI: selalu baca lewat readLine supaya tidak ada sisa newline untuk
-// getline berikutnya. SELESAI JIKA: [ ] M-UI-1 lulus. JANGAN ubah nama,
-// parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-int readInt(std::string prompt, int minValue, int maxValue) {
-  while (true) {
+int readInt(std::string prompt, int minValue, int maxValue)
+{
+  while (true)
+  {
     std::string text = readLine(prompt);
-    if (!isAllDigits(text)) {
+    if (!isAllDigits(text))
+    {
       cout << "Masukkan angka yang benar.\n";
-    } else {
+    }
+    else
+    {
       int result = 0;
-      for (int i = 0; i < (int)text.length(); i++) {
+      for (int i = 0; i < (int)text.length(); i++)
+      {
         result = result * 10 + (text[i] - '0');
       }
-      if (result >= minValue && result <= maxValue) {
+      if (result >= minValue && result <= maxValue)
+      {
         return result;
       }
       cout << "Masukkan angka dari " << minValue << " sampai " << maxValue
@@ -559,46 +462,22 @@ int readInt(std::string prompt, int minValue, int maxValue) {
 
 // FUNGSI: pauseScreen   (flowchart: "Tampil pesan" -> "Enter" -> "Lanjut")
 // TUJUAN: memberi pengguna waktu membaca hasil sebelum kembali ke menu.
-// TODO:
-//  [*] 1. Tampilkan pesan singkat.
-//  [*] 2. Panggil readLine dengan prompt kosong agar pengguna menekan Enter.
 // CONTOH: setelah pesan berhasil, Enter kembali ke menu.
-// HATI-HATI: pakai readLine agar tidak terkena sisa newline dari cin >>.
-// SELESAI JIKA: [ ] M-UI-1 lulus.
-// JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
-// pemilik modul.
 void pauseScreen() { readLine("Tekan Enter untuk lanjut..."); }
 
 // FUNGSI: printHeader   (flowchart: "Judul" -> "Garis" -> "Judul")
 // TUJUAN: membuat judul layar konsisten pada setiap menu.
-// TODO:
-//  [*] 1. Tampilkan garis pemisah.
-//  [*] 2. Tampilkan title.
-//  [*] 3. Tampilkan garis pemisah lagi.
 // CONTOH: "Menu Pengguna" tampil di antara dua garis.
-// HATI-HATI: hanya file dalam folder ui yang boleh memakai cout.
-// SELESAI JIKA: [ ] M-UI-1 lulus.
-// JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
-// pemilik modul.
-void printHeader(std::string title) {
+void printHeader(std::string title)
+{
   std::cout << "\n==============================\n";
   std::cout << title << "\n";
   std::cout << "==============================\n";
 }
 
-// ============ [PEMILIK Haris dan Muflih] storage ============
+// Haris
+// ============ storage ============
 
-/*
- * FILE:         src/storage/storage.cpp
- * PEMILIK:      Haris dan Muflih
- * TUJUAN:       Menjadi tempat opsional untuk memuat dan menyimpan array global ke file teks.
- * BERGANTUNG:   models/data.cpp dan utils/string_utils.cpp
- * DIPAKAI OLEH: main.cpp dan layar UI setelah perubahan berhasil
- * URUTAN KERJA: loadAll, saveAll; kerjakan splitLine terlebih dahulu bila mulai mengisi file
- * KONSEP YANG DIPERLUKAN: array, string, if/else, for, fstream opsional
- */
-
-// PEMILIK TODO: Haris
 // FUNGSI: loadAll   (flowchart: "Buka file" -> "Baris valid?" -> "Isi array")
 // TUJUAN: memuat users, found_items, lost_reports, dan claim_attempts dari data/*.txt.
 // TODO:
@@ -611,11 +490,11 @@ void printHeader(std::string title) {
 // HATI-HATI: file belum ada bukan error; indeks di file dimulai dari 0, nomor layar dimulai dari 1.
 // SELESAI JIKA: [ ] M-STORAGE-1 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-void loadAll() {
-    // Penyimpanan file bersifat opsional; stub ini sengaja aman saat data/*.txt belum ada.
+void loadAll()
+{
+  // Penyimpanan file bersifat opsional; stub ini sengaja aman saat data/*.txt belum ada.
 }
 
-// PEMILIK TODO: Muflih
 // FUNGSI: saveAll   (flowchart: "Array" -> "Tulis tiap record" -> "Tutup file")
 // TUJUAN: menyimpan seluruh data saat layar UI berhasil mengubah data.
 // TODO:
@@ -628,38 +507,26 @@ void loadAll() {
 // HATI-HATI: jangan menulis foundSecret ke layar, tetapi tetap wajib ditulis ke found_items.txt untuk data klaim.
 // SELESAI JIKA: [ ] M-STORAGE-2 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-void saveAll() {
-    // Penyimpanan file bersifat opsional; tidak ada data yang berubah pada stub ini.
+void saveAll()
+{
+  // Penyimpanan file bersifat opsional; tidak ada data yang berubah pada stub ini.
 }
 
-// ============ [PEMILIK Muflih] auth ============
-
-/*
- * FILE:         src/auth/auth.cpp
- * PEMILIK:      Muflih
- * TUJUAN:       Memvalidasi pendaftaran dan login tanpa input/output layar atau
- * file. BERGANTUNG:   models/data.cpp dan utils/string_utils.cpp DIPAKAI OLEH:
- * ui/auth_screen.cpp URUTAN KERJA: findUserByUsername, registerUser, loginUser
- * KONSEP YANG DIPERLUKAN: array, string, for, if/else, return
- */
+// ============ auth ============
 
 // FUNGSI: findUserByUsername   (flowchart: "Username" -> "Loop pengguna" ->
 // "Indeks/-1") TUJUAN: mencari indeks pengguna dengan username tanpa membedakan
 // huruf besar/kecil.
-// TODO:
-//  [*] 1. Ubah username masukan menjadi huruf kecil dengan toLower.
-//  [*] 2. Loop i dari 0 sampai kurang dari userCount.
-//  [*] 3. Bandingkan toLower(userName[i]) dengan username masukan; jika sama
-//  return i. [*] 4. Return -1 jika loop selesai tanpa cocok.
+// Penjelasan: Fungsi ini mencari indeks pengguna berdasarkan username tanpa membedakan huruf besar dan kecil.
 // CONTOH: data "Andi", input "andi" -> 0.
-// HATI-HATI: indeks 0 adalah hasil valid; jangan memakai if(hasil) untuk
-// menentukan ada atau tidak. SELESAI JIKA: [ ] M-AUTH-1 lulus. JANGAN ubah
-// nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-int findUserByUsername(std::string username) {
+int findUserByUsername(std::string username)
+{
   username = toLower(username);
 
-  for (int i = 0; i < userCount; i++) {
-    if (toLower(userName[i]) == username) {
+  for (int i = 0; i < userCount; i++)
+  {
+    if (toLower(userName[i]) == username)
+    {
       return i;
     }
   }
@@ -670,28 +537,19 @@ int findUserByUsername(std::string username) {
 // FUNGSI: registerUser   (flowchart: "Input daftar" -> "Valid?" -> "Simpan
 // array") TUJUAN: memvalidasi lalu menambahkan satu pengguna baru ke array
 // paralel.
-// TODO:
-//  [*] 1. Jika username, password, atau phone kosong -> return REG_EMPTY_FIELD.
-//  [*] 2. Jika username mengandung spasi -> return REG_USERNAME_HAS_SPACE.
-//  [*] 3. Jika findUserByUsername(username) bukan -1 -> return REG_DUPLICATE.
-//  [*] 4. Jika panjang password kurang dari MIN_PASSWORD_LENGTH -> return
-//  REG_PASSWORD_SHORT. [*] 5. Jika isAllDigits(phone) false -> return
-//  REG_PHONE_INVALID. [*] 6. Jika userCount sudah MAX_USERS -> return REG_FULL.
-//  [*] ] 7. Isi userName, userPassword, userPhone pada indeks userCount;
-//  userFailed=0 dan userLocked=false; lalu userCount++ dan return REG_OK.
+// Penjelasan: Fungsi ini memvalidasi data pendaftaran lalu menambahkan pengguna baru ke array.
 // CONTOH: "andi", "rahasia", "08123" -> REG_OK lalu userCount bertambah satu.
-// HATI-HATI: cek urutan ini persis agar layar menampilkan pesan yang konsisten;
-// jangan cout atau saveAll di modul logika. SELESAI JIKA: [ ] M-AUTH-1 dan
-// M-AUTH-2 lulus. JANGAN ubah nama, parameter, atau tipe return fungsi ini
-// tanpa lapor semua pemilik modul.
 int registerUser(std::string username, std::string password,
-                 std::string phone) {
+                 std::string phone)
+{
   if (username == "" || password == "" || phone == "")
     return REG_EMPTY_FIELD;
 
   int length = username.length();
-  for (int i = 0; i < length; i++) {
-    if (username[i] == ' ') {
+  for (int i = 0; i < length; i++)
+  {
+    if (username[i] == ' ')
+    {
       return REG_USERNAME_HAS_SPACE;
     }
   }
@@ -721,21 +579,13 @@ int registerUser(std::string username, std::string password,
 
 // FUNGSI: loginUser   (flowchart: "Input login" -> "Valid?" -> "Gagal 3x?")
 // TUJUAN: memeriksa username+password dan mengunci akun setelah 3x salah.
-// TODO:
-//  [*] 1. Panggil findUserByUsername(username). Hasil -1 -> return
-//  LOGIN_NOT_FOUND. [*] 2. Jika userLocked[index] bernilai true -> return
-//  LOGIN_LOCKED (jangan cek password). [*] 3. Jika userPassword[index] sama
-//  dengan password: userFailed[index] = 0, lalu return index. [*] 4. Jika beda:
-//  userFailed[index] bertambah 1. Jika sudah >= MAX_LOGIN_ATTEMPTS:
-//  userLocked[index] = true, return LOGIN_LOCKED. Jika belum: return
-//  LOGIN_WRONG_PASSWORD.
+// Penjelasan: Fungsi ini memverifikasi login dan mengunci akun setelah terlalu banyak password salah.
 // CONTOH: password salah 3x -> panggilan ke-3 mengembalikan LOGIN_LOCKED;
 // panggilan ke-4 dengan password benar tetap LOGIN_LOCKED. HATI-HATI: indeks 0
 // adalah login SUKSES; jangan memakai "if (hasil)" untuk mengecek. Bandingkan
-// dengan >= 0. Dilarang cout di sini. SELESAI JIKA: [ ] M-AUTH-3 dan M-AUTH-4
-// lulus. JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor
-// semua pemilik modul.
-int loginUser(std::string username, std::string password) {
+// dengan >= 0. Dilarang cout di sini.
+int loginUser(std::string username, std::string password)
+{
   int index = findUserByUsername(username);
   if (index == -1)
     return LOGIN_NOT_FOUND;
@@ -743,28 +593,34 @@ int loginUser(std::string username, std::string password) {
   if (userLocked[index] == true)
     return LOGIN_LOCKED;
 
-  if (userPassword[index] == password) {
+  if (userPassword[index] == password)
+  {
     userFailed[index] = 0;
     return index;
-  } else {
+  }
+  else
+  {
     userFailed[index] += 1;
   }
 
-  if (userFailed[index] >= MAX_LOGIN_ATTEMPTS) {
+  if (userFailed[index] >= MAX_LOGIN_ATTEMPTS)
+  {
     userLocked[index] = true;
     return LOGIN_LOCKED;
-  } else {
+  }
+  else
+  {
     return LOGIN_WRONG_PASSWORD;
   }
 
   return LOGIN_NOT_FOUND;
 }
 
-// ============ [PEMILIK Haris, Muflih, dan Mudhofar] items ============
+// Muflih
+// ============ items ============
 
 /*
  * FILE:         src/items/items.cpp
- * PEMILIK:      Haris, Muflih, dan Mudhofar
  * TUJUAN:       Mengelola laporan temuan, laporan hilang, dan hasil pencarian
  * tanpa layar. BERGANTUNG:   models/data.cpp, utils/string_utils.cpp,
  * utils/date_utils.cpp DIPAKAI OLEH: ui/item_screen.cpp dan ui/claim_screen.cpp
@@ -773,7 +629,6 @@ int loginUser(std::string username, std::string password) {
  * return
  */
 
-// PEMILIK TODO: Haris
 // FUNGSI: addFoundItem   (flowchart: "Input barang" -> "Valid?" -> "Simpan")
 // TUJUAN: memvalidasi dan menambah satu laporan barang temuan.
 // TODO:
@@ -792,7 +647,8 @@ int loginUser(std::string username, std::string password) {
 // tanpa lapor semua pemilik modul.
 int addFoundItem(int reporterIndex, std::string name, std::string category,
                  std::string location, string dateFound,
-                 std::string description, std::string secretDetail) {
+                 std::string description, std::string secretDetail)
+{
   (void)reporterIndex; // hapus komentar ini setelah dipakai
   (void)name;          // hapus komentar ini setelah dipakai
   (void)category;      // hapus komentar ini setelah dipakai
@@ -803,7 +659,6 @@ int addFoundItem(int reporterIndex, std::string name, std::string category,
   return ITEM_FULL;
 }
 
-// PEMILIK TODO: Haris
 // FUNGSI: addLostReport   (flowchart: "Input hilang" -> "Valid?" -> "Simpan")
 // TUJUAN: memvalidasi dan menambah satu laporan kehilangan.
 // TODO:
@@ -819,7 +674,8 @@ int addFoundItem(int reporterIndex, std::string name, std::string category,
 // parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
 int addLostReport(int reporterIndex, std::string name, std::string category,
                   std::string location, string dateLost,
-                  std::string description) {
+                  std::string description)
+{
   (void)reporterIndex; // hapus komentar ini setelah dipakai
   (void)name;          // hapus komentar ini setelah dipakai
   (void)category;      // hapus komentar ini setelah dipakai
@@ -829,7 +685,6 @@ int addLostReport(int reporterIndex, std::string name, std::string category,
   return ITEM_FULL;
 }
 
-// PEMILIK TODO: Mudhofar
 // FUNGSI: searchAvailableItems   (flowchart: "Filter" -> "Loop temuan" ->
 // "searchResult") TUJUAN: mengisi hasil pencarian hanya dengan barang berstatus
 // Tersedia.
@@ -848,7 +703,8 @@ int addLostReport(int reporterIndex, std::string name, std::string category,
 // ] M-ITEM-4 dan M-ITEM-5 lulus. JANGAN ubah nama, parameter, atau tipe return
 // fungsi ini tanpa lapor semua pemilik modul.
 int searchAvailableItems(std::string keyword, std::string category,
-                         std::string location) {
+                         std::string location)
+{
   (void)keyword;  // hapus komentar ini setelah dipakai
   (void)category; // hapus komentar ini setelah dipakai
   (void)location; // hapus komentar ini setelah dipakai
@@ -856,7 +712,6 @@ int searchAvailableItems(std::string keyword, std::string category,
   return 0;
 }
 
-// PEMILIK TODO: Muflih
 // FUNGSI: listItemsByReporter   (flowchart: "User" -> "Loop temuan" ->
 // "searchResult") TUJUAN: mengisi hasil bersama dengan semua barang temuan
 // milik seorang pengguna.
@@ -868,17 +723,18 @@ int searchAvailableItems(std::string keyword, std::string category,
 // HATI-HATI: yang disimpan adalah indeks asli barang, bukan nomor tampilan
 // indeks+1. SELESAI JIKA: [ ] M-ITEM-6 lulus. JANGAN ubah nama, parameter, atau
 // tipe return fungsi ini tanpa lapor semua pemilik modul.
-int listItemsByReporter(int reporterIndex) {
+int listItemsByReporter(int reporterIndex)
+{
   (void)reporterIndex; // hapus komentar ini setelah dipakai
   searchResultCount = 0;
   return 0;
 }
 
-// ============ [PEMILIK Mudhofar] claims ============
+// Mudhofar
+// ============ claims ============
 
 /*
  * FILE:         src/claims/claims.cpp
- * PEMILIK:      Mudhofar
  * TUJUAN:       Memproses percobaan klaim barang tanpa layar atau file.
  * BERGANTUNG:   models/data.cpp dan utils/string_utils.cpp
  * DIPAKAI OLEH: ui/claim_screen.cpp
@@ -886,7 +742,6 @@ int listItemsByReporter(int reporterIndex) {
  * KONSEP YANG DIPERLUKAN: array, string, for, if/else, return
  */
 
-// PEMILIK TODO: Mudhofar
 // FUNGSI: getFailedClaimCount   (flowchart: "Item+user" -> "Loop klaim" ->
 // "Jumlah") TUJUAN: mengambil jumlah jawaban klaim salah untuk pasangan item
 // dan pengguna.
@@ -898,13 +753,13 @@ int listItemsByReporter(int reporterIndex) {
 // HATI-HATI: pasangan item sama tetapi user berbeda harus memiliki hitungan
 // terpisah. SELESAI JIKA: [ ] M-CLAIM-1 lulus. JANGAN ubah nama, parameter,
 // atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-int getFailedClaimCount(int itemIndex, int userIndex) {
+int getFailedClaimCount(int itemIndex, int userIndex)
+{
   (void)itemIndex; // hapus komentar ini setelah dipakai
   (void)userIndex; // hapus komentar ini setelah dipakai
   return 0;
 }
 
-// PEMILIK TODO: Mudhofar
 // FUNGSI: getFinderContact   (flowchart: "Item" -> "Reporter" -> "Kontak")
 // TUJUAN: membuat teks "username - nomor telepon" milik penemu barang.
 // TODO:
@@ -914,12 +769,12 @@ int getFailedClaimCount(int itemIndex, int userIndex) {
 // HATI-HATI: fungsi ini hanya dipanggil UI setelah CLAIM_APPROVED dan itemIndex
 // sudah valid. SELESAI JIKA: [ ] M-CLAIM-3 lulus. JANGAN ubah nama, parameter,
 // atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-std::string getFinderContact(int itemIndex) {
+std::string getFinderContact(int itemIndex)
+{
   (void)itemIndex; // hapus komentar ini setelah dipakai
   return "";
 }
 
-// PEMILIK TODO: Mudhofar
 // FUNGSI: submitClaim   (flowchart: "Pilih item" -> "Boleh klaim?" -> "Detail
 // benar?") TUJUAN: menyetujui klaim benar atau mencatat jawaban salah untuk
 // satu item dan pengguna.
@@ -942,18 +797,19 @@ std::string getFinderContact(int itemIndex) {
 // SELESAI JIKA: [ ] M-CLAIM-1, M-CLAIM-2, M-CLAIM-3, dan M-CLAIM-4 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
 // pemilik modul.
-int submitClaim(int claimantIndex, int itemIndex, std::string secretAnswer) {
+int submitClaim(int claimantIndex, int itemIndex, std::string secretAnswer)
+{
   (void)claimantIndex; // hapus komentar ini setelah dipakai
   (void)itemIndex;     // hapus komentar ini setelah dipakai
   (void)secretAnswer;  // hapus komentar ini setelah dipakai
   return CLAIM_ITEM_NOT_FOUND;
 }
 
-// ============ [PEMILIK Muflih] auth_screen ============
+// Haris
+// ============ auth_screen ============
 
 /*
  * FILE:         src/ui/auth_screen.cpp
- * PEMILIK:      Muflih
  * TUJUAN:       Menampilkan alur daftar dan login serta menerjemahkan kode auth ke pesan Indonesia.
  * BERGANTUNG:   ui/input_helpers.cpp, auth/auth.cpp, storage/storage.cpp
  * DIPAKAI OLEH: main.cpp
@@ -961,7 +817,6 @@ int submitClaim(int claimantIndex, int itemIndex, std::string secretAnswer) {
  * KONSEP YANG DIPERLUKAN: string, int, if/else, fungsi, return
  */
 
-// PEMILIK TODO: Muflih
 // FUNGSI: showRegisterScreen   (flowchart: "Input daftar" -> "registerUser" -> "Pesan")
 // TUJUAN: meminta data pendaftaran, menampilkan pesan hasil, dan menyimpan jika sukses.
 // TODO:
@@ -974,11 +829,11 @@ int submitClaim(int claimantIndex, int itemIndex, std::string secretAnswer) {
 // HATI-HATI: layar menyimpan input dengan readLine; modul auth tidak boleh memakai cout/cin/file.
 // SELESAI JIKA: [ ] M-AUTH-1 dan M-AUTH-2 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-void showRegisterScreen() {
-    // Stub layar: isi setelah registerUser selesai dikerjakan.
+void showRegisterScreen()
+{
+  // Stub layar: isi setelah registerUser selesai dikerjakan.
 }
 
-// PEMILIK TODO: Muflih
 // FUNGSI: showLoginScreen   (flowchart: "Input login" -> "loginUser" -> "Masuk/-1")
 // TUJUAN: meminta kredensial dan mengembalikan indeks pengguna bila login berhasil.
 // TODO:
@@ -990,16 +845,17 @@ void showRegisterScreen() {
 // HATI-HATI: indeks 0 sukses; selalu cek hasil >= 0, bukan if(hasil).
 // SELESAI JIKA: [ ] M-AUTH-3 dan M-AUTH-4 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-int showLoginScreen() {
-    // Stub aman: -1 berarti kembali ke menu tamu.
-    return -1;
+int showLoginScreen()
+{
+  // Stub aman: -1 berarti kembali ke menu tamu.
+  return -1;
 }
 
-// ============ [PEMILIK Haris dan Muflih] item_screen ============
+// Muflih
+// ============ item_screen ============
 
 /*
  * FILE:         src/ui/item_screen.cpp
- * PEMILIK:      Haris dan Muflih
  * TUJUAN:       Menampilkan layar laporan barang dan laporan pengguna.
  * BERGANTUNG:   ui/input_helpers.cpp, items/items.cpp, utils/id_utils.cpp,
  * storage/storage.cpp DIPAKAI OLEH: main.cpp dan ui/claim_screen.cpp URUTAN
@@ -1007,7 +863,6 @@ int showLoginScreen() {
  * KONSEP YANG DIPERLUKAN: string, int, if/else, for, fungsi
  */
 
-// PEMILIK TODO: Haris
 // FUNGSI: showReportFoundScreen   (flowchart: "Input temuan" -> "addFoundItem"
 // -> "Pesan") TUJUAN: meminta laporan barang temuan dan menyimpan jika
 // penambahan berhasil.
@@ -1021,11 +876,11 @@ int showLoginScreen() {
 // HATI-HATI: detail rahasia hanya diminta untuk verifikasi klaim, tidak boleh
 // dicetak. SELESAI JIKA: [ ] M-ITEM-1 sampai M-ITEM-3 lulus. JANGAN ubah nama,
 // parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-void showReportFoundScreen(int userIndex) {
+void showReportFoundScreen(int userIndex)
+{
   (void)userIndex; // hapus komentar ini setelah dipakai
 }
 
-// PEMILIK TODO: Haris
 // FUNGSI: showReportLostScreen   (flowchart: "Input hilang" -> "addLostReport"
 // -> "Pesan") TUJUAN: meminta laporan kehilangan; prefillName dapat dipakai
 // dari pencarian tanpa hasil.
@@ -1040,12 +895,12 @@ void showReportFoundScreen(int userIndex) {
 // tetap dapat mengubahnya. SELESAI JIKA: [ ] M-ITEM-1 dan M-ITEM-5 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua
 // pemilik modul.
-void showReportLostScreen(int userIndex, std::string prefillName) {
+void showReportLostScreen(int userIndex, std::string prefillName)
+{
   (void)userIndex;   // hapus komentar ini setelah dipakai
   (void)prefillName; // hapus komentar ini setelah dipakai
 }
 
-// PEMILIK TODO: Muflih
 // FUNGSI: showMyReportsScreen   (flowchart: "User" -> "listItemsByReporter" ->
 // "Daftar") TUJUAN: menampilkan semua barang temuan yang dilaporkan pengguna
 // aktif.
@@ -1059,15 +914,16 @@ void showReportLostScreen(int userIndex, std::string prefillName) {
 // HATI-HATI: searchResult menyimpan indeks asli; status boleh Dikembalikan
 // tetap muncul di laporan saya. SELESAI JIKA: [ ] M-ITEM-6 lulus. JANGAN ubah
 // nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-void showMyReportsScreen(int userIndex) {
+void showMyReportsScreen(int userIndex)
+{
   (void)userIndex; // hapus komentar ini setelah dipakai
 }
 
-// ============ [PEMILIK Mudhofar] claim_screen ============
+// Mudhofar
+// ============ claim_screen ============
 
 /*
  * FILE:         src/ui/claim_screen.cpp
- * PEMILIK:      Mudhofar
  * TUJUAN:       Menampilkan pencarian dan proses klaim barang kepada pengguna.
  * BERGANTUNG:   ui/input_helpers.cpp, items/items.cpp, claims/claims.cpp, utils/id_utils.cpp, storage/storage.cpp, ui/item_screen.cpp
  * DIPAKAI OLEH: main.cpp
@@ -1075,7 +931,6 @@ void showMyReportsScreen(int userIndex) {
  * KONSEP YANG DIPERLUKAN: string, int, if/else, for, fungsi
  */
 
-// PEMILIK TODO: Mudhofar
 // FUNGSI: showClaimFlowScreen   (flowchart: "Cari" -> "Pilih" -> "Jawab detail" -> "Klaim")
 // TUJUAN: mengarahkan pengguna dari pencarian barang sampai hasil klaim.
 // TODO:
@@ -1089,13 +944,15 @@ void showMyReportsScreen(int userIndex) {
 // HATI-HATI: nomor layar adalah indeks+1; jangan mempercayai nomor yang tidak ada dalam searchResult dan jangan cetak detail rahasia.
 // SELESAI JIKA: [ ] M-ITEM-5 dan M-CLAIM-1 sampai M-CLAIM-4 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-void showClaimFlowScreen(int userIndex) {
-    (void)userIndex; // hapus komentar ini setelah dipakai
+void showClaimFlowScreen(int userIndex)
+{
+  (void)userIndex; // hapus komentar ini setelah dipakai
 }
 
-// ============ [PEMILIK Muflih] main() ============
+// Ilham
+// Ilham
+// ============ main() ============
 
-// PEMILIK TODO: Muflih
 // FUNGSI: main   (flowchart: "Mulai" -> "loadAll" -> "Menu tamu/pengguna" -> "Keluar")
 // TUJUAN: memulai data, mengarahkan layar, dan menjaga menu berjalan sampai pengguna keluar.
 // TODO:
@@ -1108,45 +965,61 @@ void showClaimFlowScreen(int userIndex) {
 // HATI-HATI: indeks 0 adalah login sukses; main tidak boleh berisi logika bisnis atau memakai cin/cout langsung.
 // SELESAI JIKA: [ ] M-UI-1 lulus.
 // JANGAN ubah nama, parameter, atau tipe return fungsi ini tanpa lapor semua pemilik modul.
-int main() {
-  cout << "awokawok"<<endl;
-  cout << "Hai"<<endl;
-    loadAll();
-    if (userCount == 0) {
-        loadDemoData();
+int main()
+{
+  cout << "awokawok" << endl;
+  cout << "Hai" << endl;
+  loadAll();
+  if (userCount == 0)
+  {
+    loadDemoData();
+  }
+
+  bool isRunning = true;
+  while (isRunning)
+  {
+    printHeader("Lost and Found Management System");
+    int guestChoice = readInt("1. Register\n2. Login\n3. Keluar\nPilih: ", 1, 3);
+
+    if (guestChoice == 1)
+    {
+      showRegisterScreen();
     }
-
-    bool isRunning = true;
-    while (isRunning) {
-        printHeader("Lost and Found Management System");
-        int guestChoice = readInt("1. Register\n2. Login\n3. Keluar\nPilih: ", 1, 3);
-
-        if (guestChoice == 1) {
-            showRegisterScreen();
-        } else if (guestChoice == 2) {
-            int userIndex = showLoginScreen();
-            while (userIndex >= 0) {
-                printHeader("Menu Pengguna");
-                int userChoice = readInt("1. Lapor temuan\n2. Klaim barang\n3. Laporan saya\n4. Logout\nPilih: ", 1, 4);
-                if (userChoice == 1) {
-                    showReportFoundScreen(userIndex);
-                } else if (userChoice == 2) {
-                    showClaimFlowScreen(userIndex);
-                } else if (userChoice == 3) {
-                    showMyReportsScreen(userIndex);
-                } else {
-                    userIndex = -1;
-                }
-            }
-        } else {
-            isRunning = false;
+    else if (guestChoice == 2)
+    {
+      int userIndex = showLoginScreen();
+      while (userIndex >= 0)
+      {
+        printHeader("Menu Pengguna");
+        int userChoice = readInt("1. Lapor temuan\n2. Klaim barang\n3. Laporan saya\n4. Logout\nPilih: ", 1, 4);
+        if (userChoice == 1)
+        {
+          showReportFoundScreen(userIndex);
         }
+        else if (userChoice == 2)
+        {
+          showClaimFlowScreen(userIndex);
+        }
+        else if (userChoice == 3)
+        {
+          showMyReportsScreen(userIndex);
+        }
+        else
+        {
+          userIndex = -1;
+        }
+      }
     }
+    else
+    {
+      isRunning = false;
+    }
+  }
 
-    return 0;
+  return 0;
 }
 // hari ini sangat cerah, bahkan saya ingin segera memeluk awan dan hujan yang tersebar
 // harap hari-hari seperti ini selalu datang, dan nikmat yang aku dapatkan tidak berkurang sama sekali
 
-//testing123
-//yoks
+// testing123
+// yoks

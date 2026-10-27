@@ -1,6 +1,6 @@
 /*
  * FILE:         src/main.cpp
- * PEMILIK:      Anggota D
+ * PEMILIK:      Muflih
  * TUJUAN:       Menyatukan semua bagian program dan menjalankan menu utama.
  * BERGANTUNG:   seluruh bagian dalam file ini
  * DIPAKAI OLEH: sistem operasi saat program dijalankan
@@ -16,11 +16,11 @@
 
 using namespace std;
 
-// ============ [PEMILIK A] data ============
+// ============ [PEMILIK Muflih] data ============
 
 /*
  * FILE:         src/models/data.cpp
- * PEMILIK:      Anggota A
+ * PEMILIK:      Muflih
  * TUJUAN:       Menyimpan semua data program dalam array paralel global.
  * BERGANTUNG:   string dari src/main.cpp
  * DIPAKAI OLEH: semua modul
@@ -88,6 +88,7 @@ int claimCount = 0;
 int searchResult[MAX_FOUND];
 int searchResultCount = 0;
 
+// PEMILIK TODO: Haris
 // FUNGSI: loadDemoData   (flowchart: "Data kosong?" -> "Isi contoh")
 // TUJUAN: menyediakan dua pengguna dan dua barang temuan agar program dapat
 // dicoba tanpa registrasi.
@@ -141,11 +142,11 @@ void loadDemoData() {
     }
 }
 
-// ============ [PEMILIK A] string_utils ============
+// ============ [PEMILIK Haris] string_utils ============
 
 /*
  * FILE:         src/utils/string_utils.cpp
- * PEMILIK:      Anggota A
+ * PEMILIK:      Haris
  * TUJUAN:       Menyediakan bantuan teks tanpa layar dan tanpa file.
  * BERGANTUNG:   string dan cctype dari src/main.cpp
  * DIPAKAI OLEH: auth, items, claims, storage, ui/input_helpers
@@ -327,11 +328,11 @@ int splitLine(std::string line, char delimiter, std::string parts[],
   return amount;
 }
 
-// ============ [PEMILIK C] date_utils ============
+// ============ [PEMILIK Muflih] date_utils ============
 
 /*
  * FILE:         src/utils/date_utils.cpp
- * PEMILIK:      Anggota C
+ * PEMILIK:      Muflih
  * TUJUAN:       Memeriksa dan menyediakan tanggal untuk laporan barang.
  * BERGANTUNG:   string dan ctime dari src/main.cpp
  * DIPAKAI OLEH: items/items.cpp
@@ -462,11 +463,11 @@ bool isFutureDate(std::string date) {
   return date > today;
 }
 
-// ============ [PEMILIK A] id_utils ============
+// ============ [PEMILIK Haris] id_utils ============
 
 /*
  * FILE:         src/utils/id_utils.cpp
- * PEMILIK:      Anggota A
+ * PEMILIK:      Haris
  * TUJUAN:       Mengubah indeks array menjadi nomor layar dan sebaliknya.
  * BERGANTUNG:   tidak ada
  * DIPAKAI OLEH: ui/item_screen.cpp dan ui/claim_screen.cpp
@@ -496,11 +497,11 @@ int toDisplayNo(int index) { return index + 1; }
 // pemilik modul.
 int toIndex(int displayNo) { return displayNo - 1; }
 
-// ============ [PEMILIK D] input_helpers ============
+// ============ [PEMILIK Mudhofar] input_helpers ============
 
 /*
  * FILE:         src/ui/input_helpers.cpp
- * PEMILIK:      Anggota D
+ * PEMILIK:      Mudhofar
  * TUJUAN:       Membaca dan menampilkan input terminal yang dipakai semua layar
  * UI. BERGANTUNG:   utils/string_utils.cpp DIPAKAI OLEH: main.cpp dan seluruh
  * file ui URUTAN KERJA: readLine, readInt, printHeader, pauseScreen KONSEP YANG
@@ -585,11 +586,11 @@ void printHeader(std::string title) {
   std::cout << "==============================\n";
 }
 
-// ============ [PEMILIK A] storage ============
+// ============ [PEMILIK Haris dan Muflih] storage ============
 
 /*
  * FILE:         src/storage/storage.cpp
- * PEMILIK:      Anggota A
+ * PEMILIK:      Haris dan Muflih
  * TUJUAN:       Menjadi tempat opsional untuk memuat dan menyimpan array global ke file teks.
  * BERGANTUNG:   models/data.cpp dan utils/string_utils.cpp
  * DIPAKAI OLEH: main.cpp dan layar UI setelah perubahan berhasil
@@ -597,6 +598,7 @@ void printHeader(std::string title) {
  * KONSEP YANG DIPERLUKAN: array, string, if/else, for, fstream opsional
  */
 
+// PEMILIK TODO: Haris
 // FUNGSI: loadAll   (flowchart: "Buka file" -> "Baris valid?" -> "Isi array")
 // TUJUAN: memuat users, found_items, lost_reports, dan claim_attempts dari data/*.txt.
 // TODO:
@@ -613,6 +615,7 @@ void loadAll() {
     // Penyimpanan file bersifat opsional; stub ini sengaja aman saat data/*.txt belum ada.
 }
 
+// PEMILIK TODO: Muflih
 // FUNGSI: saveAll   (flowchart: "Array" -> "Tulis tiap record" -> "Tutup file")
 // TUJUAN: menyimpan seluruh data saat layar UI berhasil mengubah data.
 // TODO:
@@ -629,11 +632,11 @@ void saveAll() {
     // Penyimpanan file bersifat opsional; tidak ada data yang berubah pada stub ini.
 }
 
-// ============ [PEMILIK B] auth ============
+// ============ [PEMILIK Muflih] auth ============
 
 /*
  * FILE:         src/auth/auth.cpp
- * PEMILIK:      Anggota B
+ * PEMILIK:      Muflih
  * TUJUAN:       Memvalidasi pendaftaran dan login tanpa input/output layar atau
  * file. BERGANTUNG:   models/data.cpp dan utils/string_utils.cpp DIPAKAI OLEH:
  * ui/auth_screen.cpp URUTAN KERJA: findUserByUsername, registerUser, loginUser
@@ -757,11 +760,11 @@ int loginUser(std::string username, std::string password) {
   return LOGIN_NOT_FOUND;
 }
 
-// ============ [PEMILIK C] items ============
+// ============ [PEMILIK Haris, Muflih, dan Mudhofar] items ============
 
 /*
  * FILE:         src/items/items.cpp
- * PEMILIK:      Anggota C
+ * PEMILIK:      Haris, Muflih, dan Mudhofar
  * TUJUAN:       Mengelola laporan temuan, laporan hilang, dan hasil pencarian
  * tanpa layar. BERGANTUNG:   models/data.cpp, utils/string_utils.cpp,
  * utils/date_utils.cpp DIPAKAI OLEH: ui/item_screen.cpp dan ui/claim_screen.cpp
@@ -770,6 +773,7 @@ int loginUser(std::string username, std::string password) {
  * return
  */
 
+// PEMILIK TODO: Haris
 // FUNGSI: addFoundItem   (flowchart: "Input barang" -> "Valid?" -> "Simpan")
 // TUJUAN: memvalidasi dan menambah satu laporan barang temuan.
 // TODO:
@@ -799,6 +803,7 @@ int addFoundItem(int reporterIndex, std::string name, std::string category,
   return ITEM_FULL;
 }
 
+// PEMILIK TODO: Haris
 // FUNGSI: addLostReport   (flowchart: "Input hilang" -> "Valid?" -> "Simpan")
 // TUJUAN: memvalidasi dan menambah satu laporan kehilangan.
 // TODO:
@@ -824,6 +829,7 @@ int addLostReport(int reporterIndex, std::string name, std::string category,
   return ITEM_FULL;
 }
 
+// PEMILIK TODO: Mudhofar
 // FUNGSI: searchAvailableItems   (flowchart: "Filter" -> "Loop temuan" ->
 // "searchResult") TUJUAN: mengisi hasil pencarian hanya dengan barang berstatus
 // Tersedia.
@@ -850,6 +856,7 @@ int searchAvailableItems(std::string keyword, std::string category,
   return 0;
 }
 
+// PEMILIK TODO: Muflih
 // FUNGSI: listItemsByReporter   (flowchart: "User" -> "Loop temuan" ->
 // "searchResult") TUJUAN: mengisi hasil bersama dengan semua barang temuan
 // milik seorang pengguna.
@@ -867,11 +874,11 @@ int listItemsByReporter(int reporterIndex) {
   return 0;
 }
 
-// ============ [PEMILIK D] claims ============
+// ============ [PEMILIK Mudhofar] claims ============
 
 /*
  * FILE:         src/claims/claims.cpp
- * PEMILIK:      Anggota D
+ * PEMILIK:      Mudhofar
  * TUJUAN:       Memproses percobaan klaim barang tanpa layar atau file.
  * BERGANTUNG:   models/data.cpp dan utils/string_utils.cpp
  * DIPAKAI OLEH: ui/claim_screen.cpp
@@ -879,6 +886,7 @@ int listItemsByReporter(int reporterIndex) {
  * KONSEP YANG DIPERLUKAN: array, string, for, if/else, return
  */
 
+// PEMILIK TODO: Mudhofar
 // FUNGSI: getFailedClaimCount   (flowchart: "Item+user" -> "Loop klaim" ->
 // "Jumlah") TUJUAN: mengambil jumlah jawaban klaim salah untuk pasangan item
 // dan pengguna.
@@ -896,6 +904,7 @@ int getFailedClaimCount(int itemIndex, int userIndex) {
   return 0;
 }
 
+// PEMILIK TODO: Mudhofar
 // FUNGSI: getFinderContact   (flowchart: "Item" -> "Reporter" -> "Kontak")
 // TUJUAN: membuat teks "username - nomor telepon" milik penemu barang.
 // TODO:
@@ -910,6 +919,7 @@ std::string getFinderContact(int itemIndex) {
   return "";
 }
 
+// PEMILIK TODO: Mudhofar
 // FUNGSI: submitClaim   (flowchart: "Pilih item" -> "Boleh klaim?" -> "Detail
 // benar?") TUJUAN: menyetujui klaim benar atau mencatat jawaban salah untuk
 // satu item dan pengguna.
@@ -939,11 +949,11 @@ int submitClaim(int claimantIndex, int itemIndex, std::string secretAnswer) {
   return CLAIM_ITEM_NOT_FOUND;
 }
 
-// ============ [PEMILIK B] auth_screen ============
+// ============ [PEMILIK Muflih] auth_screen ============
 
 /*
  * FILE:         src/ui/auth_screen.cpp
- * PEMILIK:      Anggota B
+ * PEMILIK:      Muflih
  * TUJUAN:       Menampilkan alur daftar dan login serta menerjemahkan kode auth ke pesan Indonesia.
  * BERGANTUNG:   ui/input_helpers.cpp, auth/auth.cpp, storage/storage.cpp
  * DIPAKAI OLEH: main.cpp
@@ -951,6 +961,7 @@ int submitClaim(int claimantIndex, int itemIndex, std::string secretAnswer) {
  * KONSEP YANG DIPERLUKAN: string, int, if/else, fungsi, return
  */
 
+// PEMILIK TODO: Muflih
 // FUNGSI: showRegisterScreen   (flowchart: "Input daftar" -> "registerUser" -> "Pesan")
 // TUJUAN: meminta data pendaftaran, menampilkan pesan hasil, dan menyimpan jika sukses.
 // TODO:
@@ -967,6 +978,7 @@ void showRegisterScreen() {
     // Stub layar: isi setelah registerUser selesai dikerjakan.
 }
 
+// PEMILIK TODO: Muflih
 // FUNGSI: showLoginScreen   (flowchart: "Input login" -> "loginUser" -> "Masuk/-1")
 // TUJUAN: meminta kredensial dan mengembalikan indeks pengguna bila login berhasil.
 // TODO:
@@ -983,11 +995,11 @@ int showLoginScreen() {
     return -1;
 }
 
-// ============ [PEMILIK C] item_screen ============
+// ============ [PEMILIK Haris dan Muflih] item_screen ============
 
 /*
  * FILE:         src/ui/item_screen.cpp
- * PEMILIK:      Anggota C
+ * PEMILIK:      Haris dan Muflih
  * TUJUAN:       Menampilkan layar laporan barang dan laporan pengguna.
  * BERGANTUNG:   ui/input_helpers.cpp, items/items.cpp, utils/id_utils.cpp,
  * storage/storage.cpp DIPAKAI OLEH: main.cpp dan ui/claim_screen.cpp URUTAN
@@ -995,6 +1007,7 @@ int showLoginScreen() {
  * KONSEP YANG DIPERLUKAN: string, int, if/else, for, fungsi
  */
 
+// PEMILIK TODO: Haris
 // FUNGSI: showReportFoundScreen   (flowchart: "Input temuan" -> "addFoundItem"
 // -> "Pesan") TUJUAN: meminta laporan barang temuan dan menyimpan jika
 // penambahan berhasil.
@@ -1012,6 +1025,7 @@ void showReportFoundScreen(int userIndex) {
   (void)userIndex; // hapus komentar ini setelah dipakai
 }
 
+// PEMILIK TODO: Haris
 // FUNGSI: showReportLostScreen   (flowchart: "Input hilang" -> "addLostReport"
 // -> "Pesan") TUJUAN: meminta laporan kehilangan; prefillName dapat dipakai
 // dari pencarian tanpa hasil.
@@ -1031,6 +1045,7 @@ void showReportLostScreen(int userIndex, std::string prefillName) {
   (void)prefillName; // hapus komentar ini setelah dipakai
 }
 
+// PEMILIK TODO: Muflih
 // FUNGSI: showMyReportsScreen   (flowchart: "User" -> "listItemsByReporter" ->
 // "Daftar") TUJUAN: menampilkan semua barang temuan yang dilaporkan pengguna
 // aktif.
@@ -1048,11 +1063,11 @@ void showMyReportsScreen(int userIndex) {
   (void)userIndex; // hapus komentar ini setelah dipakai
 }
 
-// ============ [PEMILIK D] claim_screen ============
+// ============ [PEMILIK Mudhofar] claim_screen ============
 
 /*
  * FILE:         src/ui/claim_screen.cpp
- * PEMILIK:      Anggota D
+ * PEMILIK:      Mudhofar
  * TUJUAN:       Menampilkan pencarian dan proses klaim barang kepada pengguna.
  * BERGANTUNG:   ui/input_helpers.cpp, items/items.cpp, claims/claims.cpp, utils/id_utils.cpp, storage/storage.cpp, ui/item_screen.cpp
  * DIPAKAI OLEH: main.cpp
@@ -1060,6 +1075,7 @@ void showMyReportsScreen(int userIndex) {
  * KONSEP YANG DIPERLUKAN: string, int, if/else, for, fungsi
  */
 
+// PEMILIK TODO: Mudhofar
 // FUNGSI: showClaimFlowScreen   (flowchart: "Cari" -> "Pilih" -> "Jawab detail" -> "Klaim")
 // TUJUAN: mengarahkan pengguna dari pencarian barang sampai hasil klaim.
 // TODO:
@@ -1077,8 +1093,9 @@ void showClaimFlowScreen(int userIndex) {
     (void)userIndex; // hapus komentar ini setelah dipakai
 }
 
-// ============ [PEMILIK D] main() ============
+// ============ [PEMILIK Muflih] main() ============
 
+// PEMILIK TODO: Muflih
 // FUNGSI: main   (flowchart: "Mulai" -> "loadAll" -> "Menu tamu/pengguna" -> "Keluar")
 // TUJUAN: memulai data, mengarahkan layar, dan menjaga menu berjalan sampai pengguna keluar.
 // TODO:

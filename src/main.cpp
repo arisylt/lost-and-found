@@ -121,7 +121,7 @@ string lostName[MAX_LOST], lostCategory[MAX_LOST], lostLocation[MAX_LOST],
 int lostCount = 0;
 
 int claimItem[MAX_CLAIMS], claimUser[MAX_CLAIMS], claimFailed[MAX_CLAIMS];
-string claimStatus[MAX_CLAIMS];
+string claimStatus[MAX_CLAIMS], claimDetail[MAX_CLAIMS];
 long claimClaimedAt[MAX_CLAIMS], claimVerifiedAt[MAX_CLAIMS];
 int claimCount = 0;
 
@@ -873,9 +873,9 @@ void loadAll() {
       if (claimCount >= MAX_CLAIMS) {
         break;
       }
-      string parts[6];
-      int partsCount = splitLine(line, '|', parts, 6);
-      if (partsCount == 3 || partsCount == 6) {
+      string parts[7];
+      int partsCount = splitLine(line, '|', parts, 7);
+      if (partsCount == 3 || partsCount == 6 || partsCount == 7) {
         int cItem = 0, cUser = 0, cFailed = 0;
 
         for (int i = 0; i < (int)parts[0].length(); i++)
@@ -892,14 +892,17 @@ void loadAll() {
         claimUser[claimCount] = cUser;
         claimFailed[claimCount] = cFailed;
         // Old three column files carry no status, so derive it from failed.
-        claimStatus[claimCount] = partsCount == 6 ? parts[3]
+        bool hasStatus = partsCount >= 6;
+        claimStatus[claimCount] = hasStatus
+                                  ? parts[3]
                                   : (cFailed >= MAX_CLAIM_ATTEMPTS
                                          ? CLAIM_STATUS_BLOCKED
                                          : CLAIM_STATUS_FAILED);
         claimClaimedAt[claimCount] =
-            partsCount == 6 ? parseStoredLong(parts[4], 0) : 0;
+            hasStatus ? parseStoredLong(parts[4], 0) : 0;
         claimVerifiedAt[claimCount] =
-            partsCount == 6 ? parseStoredLong(parts[5], 0) : 0;
+            partsCount >= 6 ? parseStoredLong(parts[5], 0) : 0;
+        claimDetail[claimCount] = partsCount == 7 ? parts[6] : "";
 
         claimCount++;
       }
@@ -992,7 +995,8 @@ void saveAll() {
     for (int i = 0; i < claimCount; i++) {
       claimFile << claimItem[i] << "|" << claimUser[i] << "|" << claimFailed[i]
                 << "|" << sanitizeField(claimStatus[i]) << "|"
-                << claimClaimedAt[i] << "|" << claimVerifiedAt[i] << "\n";
+                << claimClaimedAt[i] << "|" << claimVerifiedAt[i] << "|"
+                << sanitizeField(claimDetail[i]) << "\n";
     }
     claimFile.close();
   }
@@ -1511,6 +1515,7 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
     if (record != -1) {
       claimStatus[record] = CLAIM_STATUS_APPROVED;
       claimClaimedAt[record] = (long)time(0);
+      claimDetail[record] = sanitizeField(secretAnswer);
     }
 
     return CLAIM_APPROVED;
@@ -1534,6 +1539,8 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
   claimFailed[record]++;
   bool blocked = claimFailed[record] >= MAX_CLAIM_ATTEMPTS;
   claimStatus[record] = blocked ? CLAIM_STATUS_BLOCKED : CLAIM_STATUS_FAILED;
+  // The RAT keeps the answer the claimant offered as claim evidence.
+  claimDetail[record] = sanitizeField(secretAnswer);
 
   if (blocked) {
     return CLAIM_TOO_MANY_ATTEMPTS;
@@ -2102,6 +2109,9 @@ int showBlockedClaims() {
     cout << "  [" << i + 1 << "] " << foundName[itemIndex]
          << "\n      Pengklaim: " << userFullName[claimantIndex] << " ("
          << userName[claimantIndex] << ")\n";
+    if (claimDetail[i] != "") {
+      cout << "      Detail  : " << claimDetail[i] << "\n";
+    }
     blockedCount++;
   }
   if (blockedCount == 0) {

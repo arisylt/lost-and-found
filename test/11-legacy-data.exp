@@ -95,7 +95,7 @@ exitApp
 
 # Every file is rewritten in the current format, with the reserved column empty.
 expectFileMatch [file join $workspace users.txt] {^admin\|admin123\|0000000000\|0\|0\|Administrator\|\|\|Admin\|0$}
-expectFileMatch [file join $workspace claims.txt] {^1\|0\|0\|Selesai\|[0-9]+\|[0-9]+$}
+expectFileMatch [file join $workspace claims.txt] {^1\|0\|0\|Selesai\|[0-9]+\|[0-9]+\|}
 expectFileMatch [file join $workspace found_items.txt] {^1\|Dompet Kulit Coklat\|Dompet\|Parkiran Fakultas\|2026-10-26\|Dompet berisi kartu identitas\|Ada kartu pelajar di selipan\|Sudah Diambil\|\|}
 expectFileMatch [file join $workspace locker_logs.txt] {PINTU_AMBIL}
 expectFileMatch [file join $workspace locker_logs.txt] {AMBIL_OK}

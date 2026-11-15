@@ -11,7 +11,8 @@ kompilasi dengan library dari `mysql_config`.
 ```bash
 mariadb -u root -p < schema.sql
 
-g++ -std=c++11 -Wall -Wextra src/main.cpp -o lostfound $(mysql_config --libs)
+g++ -std=c++11 -Wall -Wextra src/main.cpp -o lostfound \
+    $(mysql_config --libs) -lcrypto
 ./lostfound
 ```
 
@@ -21,7 +22,7 @@ di luar jalur standar:
 
 ```bash
 g++ -std=c++11 -Wall -Wextra $(mysql_config --cflags) \
-    src/main.cpp -o lostfound $(mysql_config --libs)
+    src/main.cpp -o lostfound $(mysql_config --libs) -lcrypto
 ```
 
 Konfigurasi koneksi dibaca dari environment (semua punya default):

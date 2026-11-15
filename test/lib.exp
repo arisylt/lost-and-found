@@ -106,7 +106,7 @@ proc prepareTest {} {
   set cflags [string trim [exec mysql_config --cflags]]
   set libs [string trim [exec mysql_config --libs]]
   set buildCommand [concat g++ -std=c++11 -Wall -Wextra $cflags \
-                        $project/src/main.cpp -o $binary $libs]
+                        $project/src/main.cpp -o $binary $libs -lcrypto]
   if {[catch {exec {*}$buildCommand} message]} {
     puts stderr $message
     exit 1

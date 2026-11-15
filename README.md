@@ -35,6 +35,15 @@ Konfigurasi koneksi dibaca dari environment (semua punya default):
 | `LF_DB_PASS` | kosong | password |
 | `LF_DB_NAME` | `lostfound` | nama database |
 
+Variabel di atas bisa disimpan di `.env` (tidak ikut Git). Contohnya ada di
+`.env.example`; program membaca environment, jadi muat dulu ke shell:
+
+```bash
+cp .env.example .env      # lalu isi kredensial
+set -a; . ./.env; set +a
+./lostfound
+```
+
 Bila koneksi gagal, program berhenti dengan pesan `[DB]` dan daftar variabel di
 atas. Pilih `3` pada menu tamu untuk keluar.
 

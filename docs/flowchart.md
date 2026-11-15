@@ -49,8 +49,8 @@ flowchart TD
     %% ==========================
 
     subgraph TITIP["Proses 1: Titip Barang"]
-        T1[/"Input nama, kategori, lokasi temuan, tanggal, path foto, detail rahasia; ciri-ciri opsional"/]
-        T1 --> T2{"Data wajib terisi, tanggal valid, foto diisi?"}
+        T1[/"Input nama, kategori, lokasi temuan, tanggal, deskripsi, detail rahasia"/]
+        T1 --> T2{"Data wajib terisi, tanggal valid?"}
 
         T2 -->|"Tidak"| T2A[/"Pesan gagal"/]
         T2A --> TZ

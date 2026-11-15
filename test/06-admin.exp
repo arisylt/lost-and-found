@@ -131,7 +131,7 @@ expectText {MAIN MENU}
 loginStudent $claimant $password
 sendLine 3
 expectText $claimItem
-expectText {Status   : CANCELLED}
+expectText {Status   : Disetujui}
 sendLine ""
 logoutStudent
 exitApp

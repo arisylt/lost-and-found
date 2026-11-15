@@ -1,0 +1,108 @@
+#!/usr/bin/expect -f
+# A claim record keeps its real status: three wrong details block it, an admin
+# approval releases it, and a finished pickup marks it done across a restart.
+source [file join [file dirname [info script]] lib.exp]
+
+prepareTest
+
+set suffix [pid]
+set finder "83$suffix"
+set claimant "84$suffix"
+set password "test123"
+set item "Test Status Klaim $suffix"
+set secret "detail status $suffix"
+set workspace [newWorkspace]
+startAppIn $workspace
+
+registerStudent $finder "Test Penemu Status $suffix" 1 "status-finder-$suffix@example.test" "093$suffix" $password
+loginStudent $finder $password
+depositItem $item 2 "Kantin Test" "Barang untuk test status klaim" $secret 1
+logoutStudent
+
+registerStudent $claimant "Test Pengklaim Status $suffix" 3 "status-claimant-$suffix@example.test" "094$suffix" $password
+loginStudent $claimant $password
+for {set attempt 1} {$attempt <= 3} {incr attempt} {
+  sendLine 2
+  sendLine $item
+  sendLine 0
+  sendLine ""
+  expect {
+    -re [format {\[([0-9]+)\] %s} $item] { set itemNumber $expect_out(1,string) }
+    timeout {
+      puts stderr "Barang test tidak muncul dalam hasil pencarian."
+      exit 1
+    }
+  }
+  sendLine $itemNumber
+  sendLine "detail salah"
+  if {$attempt < 3} {
+    expectText {Detail yang kamu masukkan salah\.}
+  } else {
+    expectText {Kamu sudah mencapai batas percobaan klaim; hubungi admin\.}
+  }
+  sendLine ""
+}
+
+# The blocked attempt shows up in the claimant's own history.
+sendLine 3
+expectText $item
+expectText {Status   : Diblokir}
+sendLine ""
+logoutStudent
+
+# Admin approves the blocked claim and hands out a fresh pickup code.
+loginStudent admin admin123
+sendLine 3
+expect {
+  -re [format {\[([0-9]+)\] %s} $item] { set blockedClaimNumber $expect_out(1,string) }
+  timeout {
+    puts stderr "Klaim terblokir tidak muncul di menu admin."
+    exit 1
+  }
+}
+sendLine $blockedClaimNumber
+sendLine 1
+expect {
+  -re {Kode ambil baru: ([0-9]+)} { set pickupCode $expect_out(1,string) }
+  timeout {
+    puts stderr "Kode ambil baru tidak ditampilkan."
+    exit 1
+  }
+}
+sendLine ""
+sendLine 6
+expectText {MAIN MENU}
+
+# The claimant picks the item up, which closes the claim record.
+loginStudent $claimant $password
+sendLine 2
+expect {
+  -re [format {\[([0-9]+)\] %s} $item] { set pendingNumber $expect_out(1,string) }
+  timeout {
+    puts stderr "Klaim yang disetujui admin tidak muncul untuk pengambilan."
+    exit 1
+  }
+}
+sendLine 2
+sendLine $pendingNumber
+sendLine $pickupCode
+expectText {\[OK\] Pintu loker terbuka\.}
+sendLine 1
+expectText {\[OK\] Pengambilan selesai\. Loker kembali tersedia\.}
+sendLine ""
+sendLine 3
+expectText $item
+expectText {Status   : Selesai}
+sendLine ""
+logoutStudent
+exitApp
+
+# The finished status is read back from claims.txt after a restart.
+startAppIn $workspace
+loginStudent $claimant $password
+sendLine 3
+expectText $item
+expectText {Status   : Selesai}
+sendLine ""
+logoutStudent
+exitApp

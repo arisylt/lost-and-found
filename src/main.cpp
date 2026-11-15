@@ -36,6 +36,11 @@ const string STATUS_CLAIM_PENDING = "Dalam Klaim";
 const string STATUS_PICKUP_LOCKED = "Pengambilan Terkunci";
 const string STATUS_PICKED_UP = "Sudah Diambil";
 const string STATUS_CAMPUS_HANDOFF = "Diserahkan ke Kampus";
+const string CLAIM_STATUS_FAILED = "Gagal";
+const string CLAIM_STATUS_APPROVED = "Disetujui";
+const string CLAIM_STATUS_DONE = "Selesai";
+const string CLAIM_STATUS_BLOCKED = "Diblokir";
+const string CLAIM_STATUS_REJECTED = "Ditolak";
 const string ROLE_STUDENT = "Mahasiswa";
 const string ROLE_ADMIN = "Admin";
 
@@ -106,6 +111,8 @@ string lostName[MAX_LOST], lostCategory[MAX_LOST], lostLocation[MAX_LOST],
 int lostCount = 0;
 
 int claimItem[MAX_CLAIMS], claimUser[MAX_CLAIMS], claimFailed[MAX_CLAIMS];
+string claimStatus[MAX_CLAIMS];
+long claimClaimedAt[MAX_CLAIMS], claimVerifiedAt[MAX_CLAIMS];
 int claimCount = 0;
 
 int logLocker[MAX_LOGS], logItem[MAX_LOGS];
@@ -816,9 +823,9 @@ void loadAll() {
       if (claimCount >= MAX_CLAIMS) {
         break;
       }
-      string parts[3];
-      int partsCount = splitLine(line, '|', parts, 3);
-      if (partsCount == 3) {
+      string parts[6];
+      int partsCount = splitLine(line, '|', parts, 6);
+      if (partsCount == 3 || partsCount == 6) {
         int cItem = 0, cUser = 0, cFailed = 0;
 
         for (int i = 0; i < (int)parts[0].length(); i++)
@@ -834,6 +841,15 @@ void loadAll() {
         claimItem[claimCount] = cItem;
         claimUser[claimCount] = cUser;
         claimFailed[claimCount] = cFailed;
+        // Old three column files carry no status, so derive it from failed.
+        claimStatus[claimCount] = partsCount == 6 ? parts[3]
+                                  : (cFailed >= MAX_CLAIM_ATTEMPTS
+                                         ? CLAIM_STATUS_BLOCKED
+                                         : CLAIM_STATUS_FAILED);
+        claimClaimedAt[claimCount] =
+            partsCount == 6 ? parseStoredLong(parts[4], 0) : 0;
+        claimVerifiedAt[claimCount] =
+            partsCount == 6 ? parseStoredLong(parts[5], 0) : 0;
 
         claimCount++;
       }
@@ -921,7 +937,8 @@ void saveAll() {
   if (claimFile.is_open()) {
     for (int i = 0; i < claimCount; i++) {
       claimFile << claimItem[i] << "|" << claimUser[i] << "|" << claimFailed[i]
-                << "\n";
+                << "|" << sanitizeField(claimStatus[i]) << "|"
+                << claimClaimedAt[i] << "|" << claimVerifiedAt[i] << "\n";
     }
     claimFile.close();
   }
@@ -1345,15 +1362,25 @@ int listItemsByReporter(int reporterIndex) {
   return searchResultCount;
 }
 
-// Returns prior failed claim attempts for an item and user.
-int getFailedClaimCount(int itemIndex, int userIndex) {
+// Finds the claim record of one item and user, or -1 when there is none.
+int findClaimRecord(int itemIndex, int userIndex) {
   for (int i = 0; i < claimCount; i++) {
     if (claimItem[i] == itemIndex && claimUser[i] == userIndex) {
-      return claimFailed[i];
+      return i;
     }
   }
 
-  return 0;
+  return -1;
+}
+
+// Returns prior failed claim attempts for an item and user.
+int getFailedClaimCount(int itemIndex, int userIndex) {
+  int record = findClaimRecord(itemIndex, userIndex);
+  if (record == -1) {
+    return 0;
+  }
+
+  return claimFailed[record];
 }
 
 // Builds the finder contact text for an item.
@@ -1389,31 +1416,43 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
     foundPickupExpiry[itemIndex] = (long)time(0) + 24 * 60 * 60;
     foundPickupFailed[itemIndex] = 0;
 
+    int record = findClaimRecord(itemIndex, claimantIndex);
+    if (record == -1 && claimCount < MAX_CLAIMS) {
+      record = claimCount;
+      claimItem[record] = itemIndex;
+      claimUser[record] = claimantIndex;
+      claimFailed[record] = 0;
+      claimVerifiedAt[record] = 0;
+      claimCount++;
+    }
+    if (record != -1) {
+      claimStatus[record] = CLAIM_STATUS_APPROVED;
+      claimClaimedAt[record] = (long)time(0);
+    }
+
     return CLAIM_APPROVED;
   }
 
-  for (int i = 0; i < claimCount; i++) {
-    if (claimItem[i] == itemIndex && claimUser[i] == claimantIndex) {
-
-      claimFailed[i]++;
-      if (claimFailed[i] >= MAX_CLAIM_ATTEMPTS) {
-        return CLAIM_TOO_MANY_ATTEMPTS;
-      }
-      return CLAIM_WRONG_DETAIL;
+  int record = findClaimRecord(itemIndex, claimantIndex);
+  if (record == -1) {
+    if (claimCount >= MAX_CLAIMS) {
+      return CLAIM_STORAGE_FULL;
     }
+
+    record = claimCount;
+    claimItem[record] = itemIndex;
+    claimUser[record] = claimantIndex;
+    claimFailed[record] = 0;
+    claimClaimedAt[record] = 0;
+    claimVerifiedAt[record] = 0;
+    claimCount++;
   }
 
-  if (claimCount >= MAX_CLAIMS) {
-    return CLAIM_STORAGE_FULL;
-  }
+  claimFailed[record]++;
+  bool blocked = claimFailed[record] >= MAX_CLAIM_ATTEMPTS;
+  claimStatus[record] = blocked ? CLAIM_STATUS_BLOCKED : CLAIM_STATUS_FAILED;
 
-  claimItem[claimCount] = itemIndex;
-  claimUser[claimCount] = claimantIndex;
-  claimFailed[claimCount] = 1;
-
-  claimCount++;
-
-  if (claimFailed[claimCount - 1] >= MAX_CLAIM_ATTEMPTS) {
+  if (blocked) {
     return CLAIM_TOO_MANY_ATTEMPTS;
   }
   return CLAIM_WRONG_DETAIL;
@@ -1487,6 +1526,10 @@ void showPickupFlow(int claimantIndex, int itemIndex) {
       if (sensor == 1) {
         addLockerLog(foundLocker[itemIndex], itemIndex, LOG_AMBIL_OK,
                      foundName[itemIndex]);
+        int record = findClaimRecord(itemIndex, claimantIndex);
+        if (record != -1) {
+          claimStatus[record] = CLAIM_STATUS_DONE;
+        }
         foundStatus[itemIndex] = STATUS_PICKED_UP;
         foundLocker[itemIndex] = -1;
         clearPickupDetails(itemIndex);
@@ -1754,9 +1797,7 @@ void showMyClaimHistory(int userIndex) {
     }
     hasClaims = true;
     cout << "\n" << foundName[claimItem[i]] << "\n";
-    cout << "Status   : "
-         << (claimFailed[i] >= MAX_CLAIM_ATTEMPTS ? "Diblokir" : "CANCELLED")
-         << "\n";
+    cout << "Status   : " << claimStatus[i] << "\n";
   }
   if (!hasClaims) {
     cout << "Kamu belum memiliki riwayat klaim.\n";
@@ -1946,7 +1987,8 @@ int showBlockedClaims() {
   int blockedCount = 0;
   cout << "\nKLAIM DIBLOKIR\n" << UI_DIVIDER << "\n";
   for (int i = 0; i < claimCount; i++) {
-    if (claimFailed[i] < MAX_CLAIM_ATTEMPTS) {
+    if (claimFailed[i] < MAX_CLAIM_ATTEMPTS ||
+        claimStatus[i] != CLAIM_STATUS_BLOCKED) {
       continue;
     }
 
@@ -2061,10 +2103,13 @@ void showAdminMenu() {
         foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
         foundPickupFailed[item] = 0;
         claimFailed[claim] = 0;
+        claimStatus[claim] = CLAIM_STATUS_APPROVED;
+        claimVerifiedAt[claim] = (long)time(0);
         saveAll();
         cout << "Kode ambil baru: " << foundPickupCode[item] << "\n";
       } else {
         claimFailed[claim] = 0;
+        claimStatus[claim] = CLAIM_STATUS_REJECTED;
         saveAll();
         cout << "Klaim ditolak dan dicatat.\n";
       }

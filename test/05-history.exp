@@ -8,15 +8,44 @@ set suffix [pid]
 set nim "76$suffix"
 set password "test123"
 set item "Test Riwayat $suffix"
+set missingItem "Hilang Riwayat $suffix"
+set today [clock format [clock seconds] -format "%Y-%m-%d"]
 registerStudent $nim "Test Riwayat $suffix" 4 "history-$suffix@example.test" "086$suffix" $password
 loginStudent $nim $password
 depositItem $item 4 4 "Elektronik untuk riwayat" "detail riwayat $suffix" 1
 
-# The deposited item appears in the current student's report history.
+# The deposited item appears in the current student's report history, and the
+# lost-report section says it is still empty.
 sendLine 3
 expectText {LAPORAN TEMUAN SAYA}
 expectText $item
 expectText {Status   : Tersedia}
+expectText {Kamu belum memiliki laporan barang hilang\.}
+sendLine ""
+
+# A search without results creates a lost-item report.
+sendLine 2
+sendLine $missingItem
+sendLine 0
+sendLine 0
+expectText {Barang tidak ditemukan}
+sendLine 1
+sendLine ""
+sendLine 5
+sendLine 4
+sendLine [clock format [clock seconds] -format "%Y-%m-%d"]
+sendLine "Laporan hilang untuk riwayat"
+expectText {Laporan barang hilang berhasil disimpan!}
+sendLine ""
+
+# That report is listed in the same history screen.
+sendLine 3
+expectText {LAPORAN TEMUAN SAYA}
+expectText {LAPORAN HILANG SAYA}
+expectText $missingItem
+expectText {Lokasi   : Gedung A}
+expectText "Tanggal  : $today"
+expectText {Deskripsi: Laporan hilang untuk riwayat}
 sendLine ""
 
 logoutStudent

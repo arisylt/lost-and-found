@@ -1849,6 +1849,22 @@ void showMyReportsScreen(int userIndex) {
     cout << "Status   : " << foundStatus[index] << "\n";
   }
 
+  cout << "\nLAPORAN HILANG SAYA\n" << UI_DIVIDER << "\n";
+  int lostShown = 0;
+  for (int i = 0; i < lostCount; i++) {
+    if (lostReporter[i] != userIndex) {
+      continue;
+    }
+    lostShown++;
+    cout << "\n" << lostName[i] << "\n";
+    cout << "Lokasi   : " << lostLocation[i] << "\n";
+    cout << "Tanggal  : " << lostDate[i] << "\n";
+    cout << "Deskripsi: " << lostDescription[i] << "\n";
+  }
+  if (lostShown == 0) {
+    cout << "Kamu belum memiliki laporan barang hilang.\n";
+  }
+
   showMyClaimHistory(userIndex);
   pauseScreen();
 }

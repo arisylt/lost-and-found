@@ -16,7 +16,7 @@ registerStudent $nim "Test Hash [expr {[pid] % 100000}]" 2 "hash-[expr {[pid] % 
 # The stored password is a digest and never the typed password.
 expectSql "SELECT LENGTH(password_hash) FROM users WHERE nim = '$nim'" "64"
 expectSql "SELECT password_hash = '$password' FROM users WHERE nim = '$nim'" "0"
-expectSql {SELECT COUNT(*) FROM users WHERE password_hash REGEXP '^[0-9a-f]{64}$'} "4"
+expectSql {SELECT COUNT(*) FROM users WHERE password_hash REGEXP '^[0-9a-f]{64}$'} "2"
 
 sendLine 2
 sendLine $nim

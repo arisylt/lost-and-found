@@ -140,81 +140,12 @@ int logCount = 0;
 int searchResult[MAX_FOUND];
 int searchResultCount = 0;
 
-// Seeds demo accounts and found items when storage is empty.
-string getTodayDate();
+// Forward declarations for helpers used by the storage layer.
 string sha256Hex(string text);
 int findUserByUsername(string username);
 int findClaimRecord(int itemIndex, int userIndex);
 
-void loadDemoData() {
-  if (userCount != 0 || foundCount != 0 || lostCount != 0) {
-    return;
-  }
-
-userName[0] = "Azhri";
-  userPassword[0] = sha256Hex("Azhri123");
-  userPhone[0] = "081234567890";
-  userFullName[0] = "Azhri Hytam";
-  userMajor[0] = "Informatika";
-  userEmail[0] = "azhri@example.com";
-  userFailed[0] = 0;
-  userLocked[0] = false;
-  userLockedUntil[0] = 0;
-  userRole[0] = ROLE_STUDENT;
-
-  userName[1] = "Arya";
-  userPassword[1] = sha256Hex("Arya123");
-  userPhone[1] = "089876543210";
-  userFullName[1] = "Arya Pratama";
-  userMajor[1] = "Sistem Informasi";
-  userEmail[1] = "arya@example.com";
-  userFailed[1] = 0;
-  userLocked[1] = false;
-  userLockedUntil[1] = 0;
-  userRole[1] = ROLE_STUDENT;
-
-  const string demoDate = getTodayDate();
-
-  foundReporter[0] = 0;
-  foundName[0] = "Payung Hitam";
-  foundCategory[0] = "Aksesori";
-  foundLocation[0] = "Kantin Utama";
-  foundDate[0] = demoDate;
-  foundDescription[0] = "Payung lipat warna hitam merk standar";
-  foundSecret[0] = "Ada stiker kecil bergambar bintang di pegangannya";
-  foundStatus[0] = STATUS_AVAILABLE;
-  foundLocker[0] = 0;
-  foundDepositCode[0] = "";
-  foundReservationExpiry[0] = 0;
-  foundDepositFailed[0] = 0;
-  foundClaimant[0] = -1;
-  foundPickupCode[0] = "";
-  foundPickupExpiry[0] = 0;
-  foundPickupFailed[0] = 0;
-
-  foundReporter[1] = 1;
-  foundName[1] = "Dompet Kulit Coklat";
-  foundCategory[1] = "Dompet";
-  foundLocation[1] = "Parkiran Fakultas";
-  foundDate[1] = demoDate;
-  foundDescription[1] =
-      "Dompet berisi kartu identitas dan beberapa kartu penting";
-  foundSecret[1] = "Ada kartu pelajar di dalam selipan dompet";
-  foundStatus[1] = STATUS_AVAILABLE;
-  foundLocker[1] = 1;
-  foundDepositCode[1] = "";
-  foundReservationExpiry[1] = 0;
-  foundDepositFailed[1] = 0;
-  foundClaimant[1] = -1;
-  foundPickupCode[1] = "";
-  foundPickupExpiry[1] = 0;
-  foundPickupFailed[1] = 0;
-
-  userCount = 2;
-  foundCount = 2;
-}
-
-// Creates the demo admin account when no admin exists.
+// Creates the default admin account when the database has no admin yet.
 void ensureDemoAdmin() {
   for (int i = 0; i < userCount; i++) {
     if (userRole[i] == ROLE_ADMIN) {
@@ -2550,9 +2481,6 @@ int main() {
   }
 
   loadAll();
-  if (userCount == 0) {
-    loadDemoData();
-  }
   ensureDemoAdmin();
   saveAll();
 

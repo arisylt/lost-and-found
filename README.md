@@ -89,7 +89,7 @@ Semua kode ada dalam satu file: `src/main.cpp`. Setiap pemilik bekerja hanya pad
 - Fase 1 **tidak memakai** `.h`, `struct`, `vector`, class, pointer, referensi, atau template. Semua data ada pada array paralel global.
 - Semua bagian sengaja digabung dalam satu `main.cpp`; banner kepemilikan menjaga pembagian kerja tetap jelas.
 - Akun yang terkunci tidak memiliki jalur buka dari menu; kunci 15 menit tersimpan di `users.locked_until` dan tetap berlaku setelah program ditutup, jadi cara membukanya adalah mengedit database.
-- Tidak ada penghapusan data; indeks array tidak bergeser. Admin demo (`admin` / `admin123`) memiliki menu anomali, penanganan barang, klaim diblokir, status loker, log loker, dan logout.
+- Tidak ada penghapusan data; indeks array tidak bergeser. Database kosong hanya diisi satu akun admin bawaan (`admin` / `admin123`) agar menu admin bisa dipakai; mahasiswa mendaftar sendiri lewat menu Register.
 - Password dan kode loker disimpan sebagai digest SHA-256 tanpa salt. Cukup untuk latihan, belum layak untuk aplikasi nyata; kode 6 digit juga hanya punya sejuta kemungkinan.
 
 Baca `docs/data-model.md` sebelum mengubah array dan `docs/TASKS.md` sebelum mulai mengisi TODO.

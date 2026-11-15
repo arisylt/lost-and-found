@@ -31,7 +31,7 @@ Sebelum memulai, jalankan `git pull --rebase` dan baca TODO pada fungsi yang dik
 1. Isi `isAllDigits`, `trim`, `toLower`, `sanitizeField`.
 2. Isi `containsIgnoreCase`, baru `splitLine`.
 3. Isi `toDisplayNo` dan `toIndex`.
-4. Isi dua pengguna dan dua barang contoh dalam `loadDemoData`.
+4. Pastikan database berisi akun admin bawaan; data contoh tidak lagi di-seed.
 5. Jika file storage dikerjakan, selesaikan `loadAll` dan `saveAll` satu format per kali.
 
 ### Definition of Done

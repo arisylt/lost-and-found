@@ -37,6 +37,6 @@ sendLine ""
 # The stored role column must also survive the restart, so admin keeps its menu.
 loginStudent admin admin123
 expectText {MENU ADMIN}
-sendLine 5
+sendLine 6
 expectText {MAIN MENU}
 exitApp

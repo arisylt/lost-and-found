@@ -12,6 +12,7 @@ const int MAX_FOUND = 200;
 const int MAX_LOST = 200;
 const int MAX_CLAIMS = 400;
 const int MAX_LOCKERS = 9;
+const int MAX_LOGS = 500;
 const int MAX_LOGIN_ATTEMPTS = 3;
 const int LOGIN_LOCK_DURATION_SECONDS = 15 * 60;
 const int MAX_CLAIM_ATTEMPTS = 3;
@@ -37,6 +38,16 @@ const string STATUS_PICKED_UP = "Sudah Diambil";
 const string STATUS_CAMPUS_HANDOFF = "Diserahkan ke Kampus";
 const string ROLE_STUDENT = "Mahasiswa";
 const string ROLE_ADMIN = "Admin";
+
+const string LOG_RESERVASI = "RESERVASI";
+const string LOG_RESERVASI_BATAL = "RESERVASI_BATAL";
+const string LOG_PINTU_TITIP = "PINTU_TITIP";
+const string LOG_TITIP_OK = "TITIP_OK";
+const string LOG_PINTU_AMBIL = "PINTU_AMBIL";
+const string LOG_AMBIL_OK = "AMBIL_OK";
+const string LOG_MASALAH_LOKER = "MASALAH_LOKER";
+const string LOG_RESET_ADMIN = "RESET_ADMIN";
+const string LOG_LOKER_RUSAK = "LOKER_RUSAK";
 
 const int REG_OK = 0;
 const int REG_EMPTY_FIELD = 1;
@@ -96,6 +107,11 @@ int lostCount = 0;
 
 int claimItem[MAX_CLAIMS], claimUser[MAX_CLAIMS], claimFailed[MAX_CLAIMS];
 int claimCount = 0;
+
+int logLocker[MAX_LOGS], logItem[MAX_LOGS];
+string logType[MAX_LOGS], logNote[MAX_LOGS];
+long logTime[MAX_LOGS];
+int logCount = 0;
 
 int searchResult[MAX_FOUND];
 int searchResultCount = 0;
@@ -280,6 +296,38 @@ bool isAllDigits(string s) {
   return true;
 }
 
+// Converts stored digits to a long, keeping a fallback for damaged text.
+long parseStoredLong(string text, long fallback) {
+  if (text == "") {
+    return fallback;
+  }
+
+  int start = 0;
+  if (text[0] == '-') {
+    start = 1;
+  }
+  if (start == (int)text.length()) {
+    return fallback;
+  }
+
+  long value = 0;
+  for (int i = start; i < (int)text.length(); i++) {
+    if (text[i] < '0' || text[i] > '9') {
+      return fallback;
+    }
+    int digit = text[i] - '0';
+    if (value > (LONG_MAX - digit) / 10) {
+      return fallback;
+    }
+    value = value * 10 + digit;
+  }
+
+  if (text[0] == '-') {
+    value = -value;
+  }
+  return value;
+}
+
 // Splits one delimited storage line into fields.
 int splitLine(string line, char delimiter, string parts[],
               int maxParts) {
@@ -384,6 +432,15 @@ string getTodayDate() {
   tm *local = localtime(&now);
   char result[11];
   strftime(result, sizeof(result), "%Y-%m-%d", local);
+  return string(result);
+}
+
+// Formats a stored timestamp as YYYY-MM-DD HH:MM.
+string formatLogTime(long stamp) {
+  time_t raw = (time_t)stamp;
+  tm *local = localtime(&raw);
+  char result[17];
+  strftime(result, sizeof(result), "%Y-%m-%d %H:%M", local);
   return string(result);
 }
 
@@ -526,6 +583,7 @@ void loadAll() {
   foundCount = 0;
   lostCount = 0;
   claimCount = 0;
+  logCount = 0;
 
   ifstream userFile("users.txt");
   if (userFile.is_open()) {
@@ -782,6 +840,28 @@ void loadAll() {
     }
     claimFile.close();
   }
+
+  ifstream logFile("locker_logs.txt");
+  if (logFile.is_open()) {
+    string line;
+    while (getline(logFile, line)) {
+      if (logCount >= MAX_LOGS) {
+        break;
+      }
+      string parts[5];
+      int partsCount = splitLine(line, '|', parts, 5);
+      if (partsCount == 5) {
+        logLocker[logCount] = (int)parseStoredLong(parts[0], -1);
+        logItem[logCount] = (int)parseStoredLong(parts[1], -1);
+        logType[logCount] = parts[2];
+        logTime[logCount] = parseStoredLong(parts[3], 0);
+        logNote[logCount] = parts[4];
+
+        logCount++;
+      }
+    }
+    logFile.close();
+  }
 }
 
 // Persists users, lockers, items, reports, and claims.
@@ -845,6 +925,38 @@ void saveAll() {
     }
     claimFile.close();
   }
+
+  ofstream logFile("locker_logs.txt");
+  if (logFile.is_open()) {
+    for (int i = 0; i < logCount; i++) {
+      logFile << logLocker[i] << "|" << logItem[i] << "|"
+              << sanitizeField(logType[i]) << "|" << logTime[i] << "|"
+              << sanitizeField(logNote[i]) << "\n";
+    }
+    logFile.close();
+  }
+}
+
+// Appends one locker event, dropping the oldest entry when the log is full.
+void addLockerLog(int locker, int item, string type, string note) {
+  if (logCount >= MAX_LOGS) {
+    for (int i = 0; i < MAX_LOGS - 1; i++) {
+      logLocker[i] = logLocker[i + 1];
+      logItem[i] = logItem[i + 1];
+      logType[i] = logType[i + 1];
+      logTime[i] = logTime[i + 1];
+      logNote[i] = logNote[i + 1];
+    }
+    logCount = MAX_LOGS - 1;
+  }
+
+  logLocker[logCount] = locker;
+  logItem[logCount] = item;
+  logType[logCount] = type;
+  logTime[logCount] = (long)time(0);
+  logNote[logCount] = sanitizeField(note);
+
+  logCount++;
 }
 
 // Finds a user index by login ID without case sensitivity.
@@ -1018,6 +1130,7 @@ void releaseExpiredDepositReservations() {
     if (foundStatus[i] == STATUS_DEPOSIT_PENDING &&
         foundReservationExpiry[i] <= now) {
       foundStatus[i] = STATUS_DEPOSIT_CANCELLED;
+      addLockerLog(foundLocker[i], i, LOG_RESERVASI_BATAL, foundName[i]);
       foundLocker[i] = -1;
       foundDepositCode[i] = "";
       foundReservationExpiry[i] = 0;
@@ -1139,12 +1252,15 @@ int reserveFoundItem(int reporterIndex, string name, string category,
   foundDepositCode[itemIndex] = makeDepositCode();
   foundReservationExpiry[itemIndex] = (long)time(0) + 10 * 60;
   foundStatus[itemIndex] = STATUS_DEPOSIT_PENDING;
+  addLockerLog(locker, itemIndex, LOG_RESERVASI, foundName[itemIndex]);
 
   return ITEM_OK;
 }
 
 // Cancels a deposit reservation and frees its locker.
 void cancelDepositReservation(int itemIndex) {
+  addLockerLog(foundLocker[itemIndex], itemIndex, LOG_RESERVASI_BATAL,
+               foundName[itemIndex]);
   foundStatus[itemIndex] = STATUS_DEPOSIT_CANCELLED;
   foundLocker[itemIndex] = -1;
   foundDepositCode[itemIndex] = "";
@@ -1357,6 +1473,8 @@ void showPickupFlow(int claimantIndex, int itemIndex) {
       continue;
     }
 
+    addLockerLog(foundLocker[itemIndex], itemIndex, LOG_PINTU_AMBIL,
+                 foundName[itemIndex]);
     cout << "[OK] Pintu loker terbuka.\n";
     while (true) {
       int sensor = readInt("\nKONFIRMASI PENGAMBILAN\n" + UI_DIVIDER + "\n"
@@ -1367,6 +1485,8 @@ void showPickupFlow(int claimantIndex, int itemIndex) {
                            1, 3);
 
       if (sensor == 1) {
+        addLockerLog(foundLocker[itemIndex], itemIndex, LOG_AMBIL_OK,
+                     foundName[itemIndex]);
         foundStatus[itemIndex] = STATUS_PICKED_UP;
         foundLocker[itemIndex] = -1;
         clearPickupDetails(itemIndex);
@@ -1375,6 +1495,8 @@ void showPickupFlow(int claimantIndex, int itemIndex) {
         return;
       }
       if (sensor == 3) {
+        addLockerLog(foundLocker[itemIndex], itemIndex, LOG_MASALAH_LOKER,
+                     foundName[itemIndex]);
         foundStatus[itemIndex] = STATUS_NEEDS_VERIFICATION;
         foundPickupCode[itemIndex] = "";
         foundPickupExpiry[itemIndex] = 0;
@@ -1513,6 +1635,8 @@ void showReportFoundScreen(int userIndex) {
     }
 
     if (code == foundDepositCode[itemIndex]) {
+      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_PINTU_TITIP,
+                   foundName[itemIndex]);
       cout << "[OK] Pintu loker terbuka.\n";
       break;
     }
@@ -1546,6 +1670,8 @@ void showReportFoundScreen(int userIndex) {
       foundDepositCode[itemIndex] = "";
       foundReservationExpiry[itemIndex] = 0;
       foundDepositFailed[itemIndex] = 0;
+      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_TITIP_OK,
+                   foundName[itemIndex]);
       saveAll();
       cout << "[OK] Penitipan selesai. Barang sekarang dapat dicari.\n";
       break;
@@ -1556,6 +1682,8 @@ void showReportFoundScreen(int userIndex) {
       foundDepositCode[itemIndex] = "";
       foundReservationExpiry[itemIndex] = 0;
       foundDepositFailed[itemIndex] = 0;
+      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_MASALAH_LOKER,
+                   foundName[itemIndex]);
       saveAll();
       cout << "Anomali tercatat; loker dikunci untuk verifikasi admin.\n";
       break;
@@ -1844,8 +1972,9 @@ void showAdminMenu() {
     cout << "  2. Tangani barang\n";
     cout << "  3. Tangani klaim diblokir\n";
     cout << "  4. Status loker\n";
-    cout << "  5. Logout\n" << UI_DIVIDER << "\n";
-    int choice = readInt("Pilih menu [1-5]: ", 1, 5);
+    cout << "  5. Lihat log loker\n";
+    cout << "  6. Logout\n" << UI_DIVIDER << "\n";
+    int choice = readInt("Pilih menu [1-6]: ", 1, 6);
     if (choice == 1) {
       bool found = false;
       for (int i = 0; i < foundCount; i++) {
@@ -1882,9 +2011,13 @@ void showAdminMenu() {
         int action = readInt(
             "1. Reset: barang tersedia\n2. Tandai loker rusak\nPilih: ", 1, 2);
         if (action == 1) {
+          addLockerLog(foundLocker[item], item, LOG_RESET_ADMIN,
+                       foundName[item]);
           foundStatus[item] = STATUS_AVAILABLE;
           clearPickupDetails(item);
         } else if (foundLocker[item] >= 0) {
+          addLockerLog(foundLocker[item], item, LOG_LOKER_RUSAK,
+                       foundName[item]);
           lockerBroken[foundLocker[item]] = true;
         }
         saveAll();
@@ -1945,6 +2078,27 @@ void showAdminMenu() {
         if (i % 3 == 2) {
           cout << "\n";
         }
+      }
+      pauseScreen();
+    } else if (choice == 5) {
+      cout << "\nLOG LOKER (20 TERBARU)\n" << UI_DIVIDER << "\n";
+      if (logCount == 0) {
+        cout << "Belum ada log loker.\n";
+      }
+      int shown = 0;
+      for (int i = logCount - 1; i >= 0 && shown < 20; i--) {
+        shown++;
+        cout << "  " << formatLogTime(logTime[i]) << "  ";
+        if (logLocker[i] >= 0 && logLocker[i] < MAX_LOCKERS) {
+          cout << lockerLabel(logLocker[i]);
+        } else {
+          cout << "-";
+        }
+        cout << "  " << logType[i];
+        if (logNote[i] != "") {
+          cout << "  " << logNote[i];
+        }
+        cout << "\n";
       }
       pauseScreen();
     } else {

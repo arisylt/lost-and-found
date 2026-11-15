@@ -89,7 +89,7 @@ sendLine ""
 sendLine 4
 expectText {DEFECTIVE}
 sendLine ""
-sendLine 5
+sendLine 6
 expectText {MAIN MENU}
 
 # The approved claimant reports a pickup anomaly. Admin reset must cancel the
@@ -125,7 +125,7 @@ sendLine 2
 sendLine $resetItemNumber
 sendLine 1
 sendLine ""
-sendLine 5
+sendLine 6
 expectText {MAIN MENU}
 
 loginStudent $claimant $password

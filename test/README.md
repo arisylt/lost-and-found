@@ -19,7 +19,7 @@ Skrip Expect ini membagi `docs/flowchart.md` menurut alurnya. Setiap skrip memba
 | `13-claim-detail.exp` | Detail jawaban pengklaim tersimpan dan tampil di daftar klaim diblokir admin |
 | `14-hashing.exp` | Password dan kode loker tersimpan sebagai digest SHA-256, plaintext lama di-upgrade saat login |
 | `15-field-limits.exp` | NIM dan nama barang ditolak bila melebihi ukuran varchar pada RAT |
-| `16-mysql-mirror.exp` | Build `-DUSE_MYSQL` menyalin data ke tabel `database.sql`; otomatis SKIP bila server/klien tidak ada |
+| `16-mysql-mirror.exp` | Build `-DUSE_MYSQL` menyalin data ke tabel `schema.sql`; otomatis SKIP bila server/klien tidak ada |
 
 ## Menjalankan
 

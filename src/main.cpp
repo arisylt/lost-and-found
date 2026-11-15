@@ -2530,7 +2530,7 @@ string dbTime(long stamp) {
   return "FROM_UNIXTIME(" + to_string(stamp) + ")";
 }
 
-// Like dbTime, but for NOT NULL columns: an unset stamp becomes the epoch.
+// Like dbTime, but for the NOT NULL timestamp columns of schema.sql.
 // FROM_UNIXTIME(0) itself returns NULL, so the epoch is written literally.
 string dbTimeRequired(long stamp) {
   if (stamp <= 0) {
@@ -2540,72 +2540,13 @@ string dbTimeRequired(long stamp) {
   return dbTime(stamp);
 }
 
-// Maps a claim status to the enumeration declared in database.sql.
-string dbClaimStatus(string status) {
-  if (status == CLAIM_STATUS_APPROVED || status == CLAIM_STATUS_DONE) {
-    // The schema has no DONE value, and a finished claim was still approved.
-    return "APPROVED";
-  }
-  if (status == CLAIM_STATUS_REJECTED) {
-    return "REJECTED";
-  }
-  if (status == CLAIM_STATUS_BLOCKED) {
-    return "LOCKED";
+// Like dbQuote, but an empty text becomes NULL.
+string dbQuoteOrNull(string text) {
+  if (text == "") {
+    return "NULL";
   }
 
-  return "PENDING";
-}
-
-// Maps the item status of a deposited item to the deposit state in the schema.
-string dbDepositStatus(int itemIndex) {
-  if (foundStatus[itemIndex] == STATUS_DEPOSIT_PENDING) {
-    return "RESERVED";
-  }
-  if (foundStatus[itemIndex] == STATUS_DEPOSIT_CANCELLED) {
-    return "CANCELLED";
-  }
-  if (foundStatus[itemIndex] == STATUS_PICKED_UP) {
-    return "PICKED_UP";
-  }
-  if (foundStatus[itemIndex] == STATUS_NEEDS_VERIFICATION) {
-    return "VERIFY";
-  }
-
-  return "DEPOSITED";
-}
-
-// Maps a lost report status to the enumeration declared in database.sql.
-string dbLostStatus(string status) {
-  if (status == "Ditemukan") {
-    return "MATCHED";
-  }
-  if (status == "Ditutup") {
-    return "CLOSED";
-  }
-
-  return "OPEN";
-}
-
-// Derives the access code state from its timestamps.
-string dbCodeStatus(long expiresAt, long usedAt) {
-  if (usedAt > 0) {
-    return "USED";
-  }
-  if (expiresAt > 0 && expiresAt < (long)time(0)) {
-    return "EXPIRED";
-  }
-
-  return "ACTIVE";
-}
-
-// Builds an address for accounts without email, because the column is
-// UNIQUE NOT NULL and several demo users start with an empty value.
-string dbEmail(string email, string nim) {
-  if (trim(email) == "") {
-    return nim + "@tanpa-email.invalid";
-  }
-
-  return email;
+  return dbQuote(text);
 }
 
 // Copies every array into MySQL inside one transaction (all or nothing).
@@ -2636,7 +2577,7 @@ bool dbSyncAll() {
                "password_hash, role, failed_login, locked_until) VALUES (" +
                dbQuote(userName[i]) + "," + dbQuote(userFullName[i]) + "," +
                dbQuote(userMajor[i]) + "," +
-               dbQuote(dbEmail(userEmail[i], userName[i])) + "," +
+               dbQuoteOrNull(userEmail[i]) + "," +
                dbQuote(userPhone[i]) + "," + dbQuote(userPassword[i]) + "," +
                dbQuote(userRole[i]) + "," + to_string(userFailed[i]) + "," +
                locked + ")");
@@ -2648,15 +2589,15 @@ bool dbSyncAll() {
   }
 
   for (int i = 0; i < LOCATION_COUNT && ok; i++) {
-    ok = dbRun("INSERT INTO locations (id_lokasi, nama_gedung, detail) VALUES (" +
-               to_string(i + 1) + "," + dbQuote(LOCATIONS[i]) + ",'')");
+    ok = dbRun("INSERT INTO locations (id_lokasi, nama_gedung) VALUES (" +
+               to_string(i + 1) + "," + dbQuote(LOCATIONS[i]) + ")");
   }
 
   for (int i = 0; i < MAX_LOCKERS && ok; i++) {
     ok = dbRun("INSERT INTO lockers (id_locker, nomor_loker, lokasi_unit, "
                "status) VALUES (" +
                to_string(i + 1) + "," + to_string(i + 1) + ",'Loker 3x3'," +
-               (lockerBroken[i] ? "'BROKEN'" : "'READY'") + ")");
+               (lockerBroken[i] ? "'Rusak'" : "'Aktif'") + ")");
   }
 
   for (int i = 0; i < foundCount && ok; i++) {
@@ -2670,9 +2611,9 @@ bool dbSyncAll() {
     ok = dbRun("INSERT IGNORE INTO categories (nama_kategori) VALUES (" +
                dbQuote(foundCategory[i]) + ")");
     if (ok) {
-      ok = dbRun("INSERT INTO locations (nama_gedung, detail) SELECT " +
+      ok = dbRun("INSERT INTO locations (nama_gedung) SELECT " +
                  dbQuote(foundLocation[i]) +
-                 ",'' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
+                 " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
                  "WHERE nama_gedung = " +
                  dbQuote(foundLocation[i]) + ")");
     }
@@ -2702,9 +2643,9 @@ bool dbSyncAll() {
     ok = dbRun("INSERT IGNORE INTO categories (nama_kategori) VALUES (" +
                dbQuote(lostCategory[i]) + ")");
     if (ok) {
-      ok = dbRun("INSERT INTO locations (nama_gedung, detail) SELECT " +
+      ok = dbRun("INSERT INTO locations (nama_gedung) SELECT " +
                  dbQuote(lostLocation[i]) +
-                 ",'' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
+                 " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
                  "WHERE nama_gedung = " +
                  dbQuote(lostLocation[i]) + ")");
     }
@@ -2718,7 +2659,7 @@ bool dbSyncAll() {
           " LIMIT 1),(SELECT id_lokasi FROM locations WHERE nama_gedung = " +
           dbQuote(lostLocation[i]) + " LIMIT 1)," + dbQuote(lostName[i]) + "," +
           dbQuote(lostDescription[i]) + "," + dbQuote(lostDate[i]) + "," +
-          dbQuote(dbLostStatus(lostStatus[i])) + ")");
+          dbQuote(lostStatus[i]) + ")");
     }
   }
 
@@ -2737,8 +2678,8 @@ bool dbSyncAll() {
                to_string(i + 1) + "," + to_string(item + 1) + "," +
                dbQuote(userName[user]) + "," + dbQuote(claimDetail[i]) + "," +
                to_string(claimFailed[i]) + "," +
-               dbQuote(dbClaimStatus(claimStatus[i])) + "," +
-               dbTimeRequired(claimClaimedAt[i]) + "," +
+               dbQuote(claimStatus[i]) + "," +
+               dbTime(claimClaimedAt[i]) + "," +
                dbTime(claimVerifiedAt[i]) + ")");
     claimOk[i] = ok;
   }
@@ -2754,10 +2695,13 @@ bool dbSyncAll() {
                "status) VALUES (" +
                to_string(i + 1) + "," + to_string(i + 1) + "," +
                to_string(foundLocker[i] + 1) + "," +
-               dbTimeRequired(foundReservedAt[i]) + "," +
-               dbTimeRequired(foundReservationExpiry[i]) + "," +
+               dbTime(foundReservedAt[i]) + "," +
+               dbTime(foundReservationExpiry[i]) + "," +
                dbTime(foundDepositedAt[i]) + "," + dbTime(foundPickedUpAt[i]) +
-               "," + dbQuote(dbDepositStatus(i)) + ")");
+               "," +
+               dbQuote(foundStatus[i] == STATUS_DEPOSIT_PENDING ? "Menunggu"
+                                                               : "Tersimpan") +
+               ")");
     depositOk[i] = ok;
   }
 
@@ -2767,14 +2711,11 @@ bool dbSyncAll() {
       ok = dbRun("INSERT INTO access_codes (id_deposit, id_claim, tipe, "
                  "code_hash, expires_at, used_at, failed_count, status) "
                  "VALUES (" +
-                 to_string(i + 1) + ",NULL,'DEPOSIT'," +
+                 to_string(i + 1) + ",NULL,'titip'," +
                  dbQuote(foundDepositCode[i]) + "," +
                  dbTimeRequired(foundReservationExpiry[i]) + "," +
                  dbTime(foundDepositCodeUsedAt[i]) + "," +
-                 to_string(foundDepositFailed[i]) + "," +
-                 dbQuote(dbCodeStatus(foundReservationExpiry[i],
-                                      foundDepositCodeUsedAt[i])) +
-                 ")");
+                 to_string(foundDepositFailed[i]) + ",'Aktif')");
     }
 
     if (ok && itemOk[i] && foundPickupCode[i] != "" && foundClaimant[i] >= 0) {
@@ -2783,14 +2724,11 @@ bool dbSyncAll() {
         ok = dbRun("INSERT INTO access_codes (id_deposit, id_claim, tipe, "
                    "code_hash, expires_at, used_at, failed_count, status) "
                    "VALUES (NULL," +
-                   to_string(claim + 1) + ",'PICKUP'," +
+                   to_string(claim + 1) + ",'ambil'," +
                    dbQuote(foundPickupCode[i]) + "," +
                    dbTimeRequired(foundPickupExpiry[i]) + "," +
                    dbTime(foundPickupCodeUsedAt[i]) + "," +
-                   to_string(foundPickupFailed[i]) + "," +
-                   dbQuote(dbCodeStatus(foundPickupExpiry[i],
-                                        foundPickupCodeUsedAt[i])) +
-                   ")");
+                   to_string(foundPickupFailed[i]) + ",'Aktif')");
       }
     }
   }

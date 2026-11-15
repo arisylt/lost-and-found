@@ -100,13 +100,13 @@ Kategori, jurusan, dan lokasi disimpan sebagai nama dari daftar di bagian atas `
 
 ## Mirror MySQL
 
-Build dengan `-DUSE_MYSQL` menyalin seluruh array ke skema `database.sql` setiap
+Build dengan `-DUSE_MYSQL` menyalin seluruh array ke skema `schema.sql` setiap
 `saveAll()` selesai (satu transaksi, `DELETE` lalu `INSERT`). File `.txt` tetap
-sumber data utama; `loadAll` tidak membaca database. Pemetaan yang perlu
-diketahui: status klaim `Disetujui`/`Selesai` → `APPROVED`, `Diblokir` → `LOCKED`,
-`Ditolak` → `REJECTED`, `Gagal` → `PENDING`; status laporan hilang `Dicari` →
-`OPEN`; kode `titip`/`ambil` → `DEPOSIT`/`PICKUP`; akun tanpa email mendapat
-`NIM@tanpa-email.invalid` karena kolomnya `UNIQUE NOT NULL`.
+sumber data utama; `loadAll` tidak membaca database. Nilai status disalin apa
+adanya (`Disetujui`, `Diblokir`, `Dicari`, `Menunggu`, `Aktif`, ...) karena semua
+kolom status di `schema.sql` bertipe `VARCHAR` tanpa enumerasi. Email kosong dan
+timestamp yang belum ada menjadi `NULL`; hanya `access_codes.expires_at` dan
+`locker_event_logs.waktu` yang memakai epoch karena `NOT NULL`.
 
 ## Selisih yang masih terbuka
 

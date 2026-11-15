@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 # The MySQL mirror (built with -DUSE_MYSQL) must copy the text file data into the
-# schema from database.sql after every save, while the .txt files stay the
+# schema from schema.sql after every save, while the .txt files stay the
 # source of truth. Skips with exit code 0 when no server or client is available.
 #
 # Environment (all optional):
@@ -58,13 +58,13 @@ if {[catch {sqlAdmin "CREATE DATABASE $database CHARACTER SET utf8mb4"} message]
   puts stderr $message
   exit 1
 }
-# database.sql targets the database name "lostfound"; drop those statements so
+# schema.sql targets the database name "lostfound"; drop those statements so
 # the suite can fill a scratch database instead.
 set workspace "/tmp/lostfound-mysql-[pid]-[clock microseconds]"
 file delete -force $workspace
 file mkdir $workspace
 
-set handle [open "$project/database.sql" r]
+set handle [open "$project/schema.sql" r]
 set schema [read $handle]
 close $handle
 regsub -all {CREATE DATABASE[^;]*;} $schema "" schema
@@ -76,7 +76,7 @@ close $out
 set schemaIn [open $schemaFile r]
 if {[catch {exec mariadb {*}[clientArgs] $database <@$schemaIn} message]} {
   close $schemaIn
-  puts stderr "Skema database.sql gagal dimuat: $message"
+  puts stderr "Skema schema.sql gagal dimuat: $message"
   exit 1
 }
 close $schemaIn
@@ -218,8 +218,8 @@ expect {
 }
 
 # The claim is mirrored as APPROVED and the pickup code as an ACTIVE PICKUP row.
-expectValue "SELECT status FROM claims WHERE nim_pengklaim = '$claimant'" "APPROVED"
-expectValue "SELECT COUNT(*) FROM access_codes WHERE tipe = 'PICKUP' AND status = 'ACTIVE'" 1
+expectValue "SELECT status FROM claims WHERE nim_pengklaim = '$claimant'" "Disetujui"
+expectValue "SELECT COUNT(*) FROM access_codes WHERE tipe = 'ambil' AND status = 'Aktif'" 1
 expectValue "SELECT COUNT(*) FROM claims WHERE detail_claim = '$secret'" 1
 
 sendLine $pickupCode
@@ -252,14 +252,16 @@ sendLine 4
 expectText {MAIN MENU}
 
 expectValue "SELECT COUNT(*) FROM lost_reports WHERE nim_pelapor = '$claimant'" 1
-expectValue "SELECT status FROM lost_reports WHERE nim_pelapor = '$claimant'" "OPEN"
+expectValue "SELECT status FROM lost_reports WHERE nim_pelapor = '$claimant'" "Dicari"
 
 # The reference tables are mirrored once, and every store is readable.
 expectCount users 5
 expectCount categories 6
 expectCount locations 8
 expectCount lockers 9
-expectValue "SELECT COUNT(*) FROM users WHERE email LIKE '%@tanpa-email.invalid'" 1
+expectValue "SELECT COUNT(*) FROM users WHERE email IS NULL" 1
+expectValue "SELECT COUNT(*) FROM deposits WHERE status IN ('Menunggu','Tersimpan')" 2
+expectValue "SELECT COUNT(*) FROM lockers WHERE status IN ('Aktif','Rusak')" 9
 
 # Restarting keeps the text files authoritative and re-mirrors them.
 close

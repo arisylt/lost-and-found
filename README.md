@@ -33,11 +33,11 @@ Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong; n
 
 File `.txt` tetap menjadi sumber data utama. Jika program dikompilasi dengan
 `-DUSE_MYSQL`, setiap `saveAll()` juga menyalin seluruh data ke MySQL dalam satu
-transaksi, mengikuti skema `database.sql` (tabel dari ERD/RAT). Tanpa flag itu
-tidak ada kode MySQL yang ikut dikompilasi, jadi build biasa tidak berubah.
+transaksi, mengikuti skema `schema.sql`. Tanpa flag itu tidak ada kode MySQL yang
+ikut dikompilasi, jadi build biasa tidak berubah.
 
 ```bash
-mariadb -u root < database.sql
+mariadb -u root -p < schema.sql
 
 g++ -std=c++11 -Wall -Wextra -DUSE_MYSQL $(mysql_config --cflags) \
     src/main.cpp -o lostfound-db $(mysql_config --libs)
@@ -48,14 +48,15 @@ export LF_DB_USER=lf LF_DB_PASS=rahasia LF_DB_NAME=lostfound
 ```
 
 Bila server tidak dapat dihubungi, program tetap berjalan dengan file `.txt` dan
-hanya menampilkan satu pesan `[DB]`. Nilai yang tidak bisa dipetakan ke skema
-ditangani otomatis: status klaim/deposit/kode diterjemahkan ke enumerasi
-`database.sql`, akun tanpa email mendapat alamat `NIM@tanpa-email.invalid`, dan
-timestamp kosong ditulis sebagai `1970-01-01 00:00:00` (epochnya 0).
+hanya menampilkan satu pesan `[DB]`. Nilai yang tidak ada di `.txt` ditulis
+sebagai `NULL` (email kosong, timestamp kosong), sedangkan kolom `NOT NULL`
+seperti `access_codes.expires_at` dan `locker_event_logs.waktu` memakai epoch
+`1970-01-01 00:00:00`. Baris lama yang tidak bisa dipetakan (tanggal rusak,
+pemilik tidak dikenal) dilewati dan dihitung, bukan menggagalkan semua.
 
-Setiap sinkronisasi menghapus lalu menulis ulang semua tabel, jadi jangan
-menganggap isi MySQL bisa diubah dari sisi database: perubahan akan tertimpa.
-Untuk data besar ini perlu diganti `INSERT ... ON DUPLICATE KEY UPDATE`.
+Setiap sinkronisasi menghapus lalu menulis ulang semua tabel, jadi data di MySQL
+tidak boleh diubah manual: akan tertimpa. Untuk data besar, ganti dengan
+`INSERT ... ON DUPLICATE KEY UPDATE`.
 
 ## Uji otomatis
 

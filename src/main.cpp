@@ -107,6 +107,11 @@ string foundName[MAX_FOUND], foundCategory[MAX_FOUND],
 int foundLocker[MAX_FOUND], foundClaimant[MAX_FOUND],
     foundDepositFailed[MAX_FOUND], foundPickupFailed[MAX_FOUND];
 long foundReservationExpiry[MAX_FOUND], foundPickupExpiry[MAX_FOUND];
+// deposits.reserved_at/deposited_at/picked_up_at and access_codes.used_at.
+// used_at belongs to the last issued code and is reset when a new code is made.
+long foundReservedAt[MAX_FOUND], foundDepositedAt[MAX_FOUND],
+    foundPickedUpAt[MAX_FOUND], foundDepositCodeUsedAt[MAX_FOUND],
+    foundPickupCodeUsedAt[MAX_FOUND];
 bool lockerBroken[MAX_LOCKERS];
 int foundCount = 0;
 
@@ -684,9 +689,10 @@ void loadAll() {
       if (foundCount >= MAX_FOUND) {
         break;
       }
-      string parts[16];
-      int partsCount = splitLine(line, '|', parts, 16);
-      if (partsCount == 8 || partsCount == 12 || partsCount == 16) {
+      string parts[22];
+      int partsCount = splitLine(line, '|', parts, 22);
+      if (partsCount == 8 || partsCount == 12 || partsCount == 16 ||
+          partsCount == 22) {
         int repIndex = 0;
         for (int i = 0; i < (int)parts[0].length(); i++) {
           if (parts[0][i] >= '0' && parts[0][i] <= '9') {
@@ -707,9 +713,15 @@ void loadAll() {
         foundDepositCode[foundCount] = partsCount >= 12 ? parts[10] : "";
         foundReservationExpiry[foundCount] = 0;
         foundClaimant[foundCount] = -1;
-        foundPickupCode[foundCount] = partsCount == 16 ? parts[13] : "";
+        foundPickupCode[foundCount] = partsCount >= 16 ? parts[13] : "";
         foundPickupExpiry[foundCount] = 0;
         foundPickupFailed[foundCount] = 0;
+        foundDepositFailed[foundCount] = 0;
+        foundReservedAt[foundCount] = 0;
+        foundDepositedAt[foundCount] = 0;
+        foundPickedUpAt[foundCount] = 0;
+        foundDepositCodeUsedAt[foundCount] = 0;
+        foundPickupCodeUsedAt[foundCount] = 0;
 
         if (partsCount >= 12) {
           int locker = 0;
@@ -758,7 +770,7 @@ void loadAll() {
           }
         }
 
-        if (partsCount == 16) {
+        if (partsCount >= 16) {
           if (isAllDigits(parts[12])) {
             int claimant = 0;
             bool claimantValid = true;
@@ -804,6 +816,18 @@ void loadAll() {
               foundPickupFailed[foundCount] = failed;
             }
           }
+        }
+
+        if (partsCount == 22) {
+          long depositFailed = parseStoredLong(parts[16], 0);
+          if (depositFailed >= 0 && depositFailed <= MAX_CLAIM_ATTEMPTS) {
+            foundDepositFailed[foundCount] = (int)depositFailed;
+          }
+          foundReservedAt[foundCount] = parseStoredLong(parts[17], 0);
+          foundDepositedAt[foundCount] = parseStoredLong(parts[18], 0);
+          foundPickedUpAt[foundCount] = parseStoredLong(parts[19], 0);
+          foundDepositCodeUsedAt[foundCount] = parseStoredLong(parts[20], 0);
+          foundPickupCodeUsedAt[foundCount] = parseStoredLong(parts[21], 0);
         }
 
         foundCount++;
@@ -936,7 +960,11 @@ void saveAll() {
                 << sanitizeField(foundDepositCode[i]) << "|"
                 << foundReservationExpiry[i] << "|" << foundClaimant[i] << "|"
                 << sanitizeField(foundPickupCode[i]) << "|"
-                << foundPickupExpiry[i] << "|" << foundPickupFailed[i] << "\n";
+                << foundPickupExpiry[i] << "|" << foundPickupFailed[i] << "|"
+                << foundDepositFailed[i] << "|" << foundReservedAt[i] << "|"
+                << foundDepositedAt[i] << "|" << foundPickedUpAt[i] << "|"
+                << foundDepositCodeUsedAt[i] << "|" << foundPickupCodeUsedAt[i]
+                << "\n";
     }
     foundFile.close();  }
 
@@ -1173,6 +1201,11 @@ int addFoundItem(int reporterIndex, string name, string category,
   foundPickupCode[foundCount] = "";
   foundPickupExpiry[foundCount] = 0;
   foundPickupFailed[foundCount] = 0;
+  foundReservedAt[foundCount] = 0;
+  foundDepositedAt[foundCount] = 0;
+  foundPickedUpAt[foundCount] = 0;
+  foundDepositCodeUsedAt[foundCount] = 0;
+  foundPickupCodeUsedAt[foundCount] = 0;
 
   foundCount++;
   return ITEM_OK;
@@ -1315,6 +1348,8 @@ int reserveFoundItem(int reporterIndex, string name, string category,
   foundLocker[itemIndex] = locker;
   foundDepositCode[itemIndex] = makeDepositCode();
   foundReservationExpiry[itemIndex] = (long)time(0) + 10 * 60;
+  foundDepositCodeUsedAt[itemIndex] = 0;
+  foundReservedAt[itemIndex] = (long)time(0);
   foundStatus[itemIndex] = STATUS_DEPOSIT_PENDING;
   addLockerLog(locker, itemIndex, LOG_RESERVASI, foundName[itemIndex]);
 
@@ -1462,6 +1497,7 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
     foundPickupCode[itemIndex] = makePickupCode();
     foundPickupExpiry[itemIndex] = (long)time(0) + 24 * 60 * 60;
     foundPickupFailed[itemIndex] = 0;
+    foundPickupCodeUsedAt[itemIndex] = 0;
 
     int record = findClaimRecord(itemIndex, claimantIndex);
     if (record == -1 && claimCount < MAX_CLAIMS) {
@@ -1561,6 +1597,7 @@ void showPickupFlow(int claimantIndex, int itemIndex) {
 
     addLockerLog(foundLocker[itemIndex], itemIndex, LOG_PINTU_AMBIL,
                  foundName[itemIndex]);
+    foundPickupCodeUsedAt[itemIndex] = (long)time(0);
     cout << "[OK] Pintu loker terbuka.\n";
     while (true) {
       int sensor = readInt("\nKONFIRMASI PENGAMBILAN\n" + UI_DIVIDER + "\n"
@@ -1573,6 +1610,7 @@ void showPickupFlow(int claimantIndex, int itemIndex) {
       if (sensor == 1) {
         addLockerLog(foundLocker[itemIndex], itemIndex, LOG_AMBIL_OK,
                      foundName[itemIndex]);
+        foundPickedUpAt[itemIndex] = (long)time(0);
         int record = findClaimRecord(itemIndex, claimantIndex);
         if (record != -1) {
           claimStatus[record] = CLAIM_STATUS_DONE;
@@ -1729,6 +1767,7 @@ void showReportFoundScreen(int userIndex) {
     if (code == foundDepositCode[itemIndex]) {
       addLockerLog(foundLocker[itemIndex], itemIndex, LOG_PINTU_TITIP,
                    foundName[itemIndex]);
+      foundDepositCodeUsedAt[itemIndex] = (long)time(0);
       cout << "[OK] Pintu loker terbuka.\n";
       break;
     }
@@ -1764,6 +1803,7 @@ void showReportFoundScreen(int userIndex) {
       foundDepositFailed[itemIndex] = 0;
       addLockerLog(foundLocker[itemIndex], itemIndex, LOG_TITIP_OK,
                    foundName[itemIndex]);
+      foundDepositedAt[itemIndex] = (long)time(0);
       saveAll();
       cout << "[OK] Penitipan selesai. Barang sekarang dapat dicari.\n";
       break;
@@ -2108,6 +2148,7 @@ void showAdminMenu() {
           foundPickupCode[item] = makePickupCode();
           foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
           foundPickupFailed[item] = 0;
+          foundPickupCodeUsedAt[item] = 0;
           cout << "Kode ambil baru: " << foundPickupCode[item] << "\n";
         } else {
           foundStatus[item] = STATUS_AVAILABLE;
@@ -2167,6 +2208,7 @@ void showAdminMenu() {
         foundPickupCode[item] = makePickupCode();
         foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
         foundPickupFailed[item] = 0;
+        foundPickupCodeUsedAt[item] = 0;
         claimFailed[claim] = 0;
         claimStatus[claim] = CLAIM_STATUS_APPROVED;
         claimVerifiedAt[claim] = (long)time(0);

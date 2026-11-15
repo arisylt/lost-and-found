@@ -1,5 +1,6 @@
 #include <cctype>
 #include <climits>
+#include <cstdint>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -105,6 +106,8 @@ string foundName[MAX_FOUND], foundCategory[MAX_FOUND],
     foundLocation[MAX_FOUND], foundDate[MAX_FOUND], foundDescription[MAX_FOUND],
     foundSecret[MAX_FOUND], foundStatus[MAX_FOUND],
     foundDepositCode[MAX_FOUND], foundPickupCode[MAX_FOUND];
+// Plaintext of the access code just issued, because only its digest is stored.
+string issuedCode = "";
 int foundLocker[MAX_FOUND], foundClaimant[MAX_FOUND],
     foundDepositFailed[MAX_FOUND], foundPickupFailed[MAX_FOUND];
 long foundReservationExpiry[MAX_FOUND], foundPickupExpiry[MAX_FOUND];
@@ -136,6 +139,7 @@ int searchResultCount = 0;
 
 // Seeds demo accounts and found items when storage is empty.
 string getTodayDate();
+string sha256Hex(string text);
 
 void loadDemoData() {
   if (userCount != 0 || foundCount != 0 || lostCount != 0) {
@@ -143,7 +147,7 @@ void loadDemoData() {
   }
 
 userName[0] = "Azhri";
-  userPassword[0] = "Azhri123";
+  userPassword[0] = sha256Hex("Azhri123");
   userPhone[0] = "081234567890";
   userFullName[0] = "Azhri Hytam";
   userMajor[0] = "Informatika";
@@ -154,7 +158,7 @@ userName[0] = "Azhri";
   userRole[0] = ROLE_STUDENT;
 
   userName[1] = "Arya";
-  userPassword[1] = "Arya123";
+  userPassword[1] = sha256Hex("Arya123");
   userPhone[1] = "089876543210";
   userFullName[1] = "Arya Pratama";
   userMajor[1] = "Sistem Informasi";
@@ -218,7 +222,7 @@ void ensureDemoAdmin() {
   }
 
   userName[userCount] = "admin";
-  userPassword[userCount] = "admin123";
+  userPassword[userCount] = sha256Hex("admin123");
   userPhone[userCount] = "0000000000";
   userFullName[userCount] = "Administrator";
   userMajor[userCount] = "";
@@ -294,6 +298,130 @@ string sanitizeField(string s) {
   }
 
   return s;
+}
+
+// Rotates a 32-bit value to the right by the given bit count.
+uint32_t rotateRight(uint32_t value, int bits) {
+  return (value >> bits) | (value << (32 - bits));
+}
+
+// Returns the SHA-256 digest of text as 64 lowercase hex characters.
+string sha256Hex(string text) {
+  const uint32_t k[64] = {
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
+      0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+      0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+      0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+      0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+      0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+      0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+      0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+      0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
+  uint32_t state[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
+
+  string message = text;
+  uint64_t bitLength = (uint64_t)message.length() * 8;
+  message += (char)0x80;
+  while (message.length() % 64 != 56) {
+    message += (char)0;
+  }
+  for (int shift = 56; shift >= 0; shift -= 8) {
+    message += (char)((bitLength >> shift) & 0xff);
+  }
+
+  for (int block = 0; block < (int)message.length(); block += 64) {
+    uint32_t word[64] = {};
+    for (int i = 0; i < 16; i++) {
+      word[i] = ((uint32_t)(unsigned char)message[block + i * 4] << 24) |
+                ((uint32_t)(unsigned char)message[block + i * 4 + 1] << 16) |
+                ((uint32_t)(unsigned char)message[block + i * 4 + 2] << 8) |
+                ((uint32_t)(unsigned char)message[block + i * 4 + 3]);
+    }
+    for (int i = 16; i < 64; i++) {
+      uint32_t s0 = rotateRight(word[i - 15], 7) ^
+                    rotateRight(word[i - 15], 18) ^ (word[i - 15] >> 3);
+      uint32_t s1 = rotateRight(word[i - 2], 17) ^
+                    rotateRight(word[i - 2], 19) ^ (word[i - 2] >> 10);
+      word[i] = word[i - 16] + s0 + word[i - 7] + s1;
+    }
+
+    uint32_t a = state[0], b = state[1], c = state[2], d = state[3];
+    uint32_t e = state[4], f = state[5], g = state[6], h = state[7];
+    for (int i = 0; i < 64; i++) {
+      uint32_t sum1 = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+      uint32_t choose = (e & f) ^ (~e & g);
+      uint32_t temp1 = h + sum1 + choose + k[i] + word[i];
+      uint32_t sum0 = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+      uint32_t majority = (a & b) ^ (a & c) ^ (b & c);
+      uint32_t temp2 = sum0 + majority;
+
+      h = g;
+      g = f;
+      f = e;
+      e = d + temp1;
+      d = c;
+      c = b;
+      b = a;
+      a = temp1 + temp2;
+    }
+
+    state[0] += a;
+    state[1] += b;
+    state[2] += c;
+    state[3] += d;
+    state[4] += e;
+    state[5] += f;
+    state[6] += g;
+    state[7] += h;
+  }
+
+  const string digits = "0123456789abcdef";
+  string result = "";
+  for (int i = 0; i < 8; i++) {
+    for (int shift = 28; shift >= 0; shift -= 4) {
+      result += digits[(state[i] >> shift) & 0xf];
+    }
+  }
+  return result;
+}
+
+// Checks whether stored text is already a SHA-256 digest.
+bool isHashed(string stored) {
+  if ((int)stored.length() != 64) {
+    return false;
+  }
+
+  for (int i = 0; i < 64; i++) {
+    if (!isxdigit(stored[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Matches a typed password against a digest or a legacy plaintext value.
+bool passwordMatches(string typed, string stored) {
+  if (isHashed(stored)) {
+    return sha256Hex(typed) == toLower(stored);
+  }
+
+  return stored == typed;
+}
+
+// Matches a typed access code against a digest or a legacy plaintext value.
+bool codeMatches(string typed, string stored) {
+  typed = trim(typed);
+  if (stored == "") {
+    return false;
+  }
+  if (isHashed(stored)) {
+    return sha256Hex(typed) == toLower(stored);
+  }
+
+  return stored == typed;
 }
 
 // Checks whether text is a nonempty sequence of digits.
@@ -1093,7 +1221,7 @@ int registerUser(string username, string password,
     return REG_FULL;
 
   userName[userCount] = username;
-  userPassword[userCount] = password;
+  userPassword[userCount] = sha256Hex(password);
   userPhone[userCount] = phone;
   userFailed[userCount] = 0;
   userLocked[userCount] = false;
@@ -1154,7 +1282,9 @@ int loginUser(string username, string password) {
     userFailed[index] = 0;
   }
 
-  if (userPassword[index] == password) {
+  if (passwordMatches(password, userPassword[index])) {
+    // Legacy plaintext rows are upgraded the first time they log in.
+    userPassword[index] = sha256Hex(password);
     userFailed[index] = 0;
     return index;
   } else {
@@ -1354,7 +1484,8 @@ int reserveFoundItem(int reporterIndex, string name, string category,
 
   int itemIndex = foundCount - 1;
   foundLocker[itemIndex] = locker;
-  foundDepositCode[itemIndex] = makeDepositCode();
+  issuedCode = makeDepositCode();
+  foundDepositCode[itemIndex] = sha256Hex(issuedCode);
   foundReservationExpiry[itemIndex] = (long)time(0) + 10 * 60;
   foundDepositCodeUsedAt[itemIndex] = 0;
   foundReservedAt[itemIndex] = (long)time(0);
@@ -1503,7 +1634,8 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
   if (toLower(trim(secretAnswer)) == toLower(trim(foundSecret[itemIndex]))) {
     foundStatus[itemIndex] = STATUS_CLAIM_PENDING;
     foundClaimant[itemIndex] = claimantIndex;
-    foundPickupCode[itemIndex] = makePickupCode();
+    issuedCode = makePickupCode();
+    foundPickupCode[itemIndex] = sha256Hex(issuedCode);
     foundPickupExpiry[itemIndex] = (long)time(0) + 24 * 60 * 60;
     foundPickupFailed[itemIndex] = 0;
     foundPickupCodeUsedAt[itemIndex] = 0;
@@ -1566,7 +1698,7 @@ int submitPickupCode(int claimantIndex, int itemIndex, string code) {
     return PICKUP_EXPIRED;
   }
 
-  if (trim(code) != foundPickupCode[itemIndex]) {
+  if (!codeMatches(code, foundPickupCode[itemIndex])) {
     foundPickupFailed[itemIndex]++;
     if (foundPickupFailed[itemIndex] >= MAX_CLAIM_ATTEMPTS) {
       foundStatus[itemIndex] = STATUS_PICKUP_LOCKED;
@@ -1764,7 +1896,7 @@ void showReportFoundScreen(int userIndex) {
   cout << "\nRESERVASI LOKER\n" << UI_DIVIDER << "\n";
   cout << "[OK] Loker " << lockerLabel(foundLocker[itemIndex])
        << " dicadangkan selama 10 menit.\n";
-  cout << "Kode titip: " << foundDepositCode[itemIndex] << "\n";
+  cout << "Kode titip: " << issuedCode << "\n";
 
   while (foundDepositFailed[itemIndex] < MAX_CLAIM_ATTEMPTS) {
     string code = trim(readLine("Masukkan kode pada keypad loker: "));
@@ -1776,7 +1908,7 @@ void showReportFoundScreen(int userIndex) {
       return;
     }
 
-    if (code == foundDepositCode[itemIndex]) {
+    if (codeMatches(code, foundDepositCode[itemIndex])) {
       addLockerLog(foundLocker[itemIndex], itemIndex, LOG_PINTU_TITIP,
                    foundName[itemIndex]);
       foundDepositCodeUsedAt[itemIndex] = (long)time(0);
@@ -2066,8 +2198,7 @@ void showClaimFlowScreen(int userIndex) {
     if (foundLocker[itemIndex] >= 0) {
       cout << "Loker: " << lockerLabel(foundLocker[itemIndex]) << "\n";
     }
-    cout << "Kode ambil berlaku 24 jam: " << foundPickupCode[itemIndex]
-              << "\n";
+    cout << "Kode ambil berlaku 24 jam: " << issuedCode << "\n";
     saveAll();
     showPickupFlow(userIndex, itemIndex);
 
@@ -2161,11 +2292,12 @@ void showAdminMenu() {
                                1, 2);
         if (verified == 1) {
           foundStatus[item] = STATUS_CLAIM_PENDING;
-          foundPickupCode[item] = makePickupCode();
+          issuedCode = makePickupCode();
+          foundPickupCode[item] = sha256Hex(issuedCode);
           foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
           foundPickupFailed[item] = 0;
           foundPickupCodeUsedAt[item] = 0;
-          cout << "Kode ambil baru: " << foundPickupCode[item] << "\n";
+          cout << "Kode ambil baru: " << issuedCode << "\n";
         } else {
           foundStatus[item] = STATUS_AVAILABLE;
           clearPickupDetails(item);
@@ -2221,7 +2353,8 @@ void showAdminMenu() {
         }
         foundStatus[item] = STATUS_CLAIM_PENDING;
         foundClaimant[item] = claimUser[claim];
-        foundPickupCode[item] = makePickupCode();
+        issuedCode = makePickupCode();
+        foundPickupCode[item] = sha256Hex(issuedCode);
         foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
         foundPickupFailed[item] = 0;
         foundPickupCodeUsedAt[item] = 0;
@@ -2229,7 +2362,7 @@ void showAdminMenu() {
         claimStatus[claim] = CLAIM_STATUS_APPROVED;
         claimVerifiedAt[claim] = (long)time(0);
         saveAll();
-        cout << "Kode ambil baru: " << foundPickupCode[item] << "\n";
+        cout << "Kode ambil baru: " << issuedCode << "\n";
       } else {
         claimFailed[claim] = 0;
         claimStatus[claim] = CLAIM_STATUS_REJECTED;

@@ -6,14 +6,22 @@ Kerangka proyek C++ terminal untuk tim mahasiswa semester 1. Program akan mencat
 
 Seluruh program berada di `src/main.cpp` dan **MySQL adalah satu-satunya
 penyimpanan**; tidak ada file `.txt` lagi. Siapkan database sekali, lalu
-kompilasi dengan flag dari `mysql_config`.
+kompilasi dengan library dari `mysql_config`.
 
 ```bash
 mariadb -u root -p < schema.sql
 
+g++ -std=c++11 -Wall -Wextra src/main.cpp -o lostfound $(mysql_config --libs)
+./lostfound
+```
+
+Header disertakan sebagai `<mysql/mysql.h>` karena letaknya di
+`/usr/include/mysql`, jadi `-I` hanya perlu jika paket MySQL Anda menaruh header
+di luar jalur standar:
+
+```bash
 g++ -std=c++11 -Wall -Wextra $(mysql_config --cflags) \
     src/main.cpp -o lostfound $(mysql_config --libs)
-./lostfound
 ```
 
 Konfigurasi koneksi dibaca dari environment (semua punya default):

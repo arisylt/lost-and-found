@@ -5,7 +5,9 @@
 #include <ctime>
 #include <iostream>
 #include <string>
-#include <mysql.h>
+// Headers live in /usr/include/mysql, so this path resolves without -I and
+// editors (clangd) can find it without running mysql_config.
+#include <mysql/mysql.h>
 
 using namespace std;
 

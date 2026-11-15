@@ -39,7 +39,7 @@ Sebelum memulai, jalankan `git pull --rebase` dan baca TODO pada fungsi yang dik
 - [ ] Tidak ada `cin`, `cout`, atau file di `models` dan `utils`.
 - [ ] Tidak memakai fitur di luar materi.
 - [ ] Build dari `src/main.cpp` lulus tanpa warning berarti.
-- [ ] Skenario string/ID/storage yang terkait sudah dicentang di `tests/manual_tests.md`.
+- [ ] Skenario string/ID/storage yang terkait sudah dicoba manual setelah perubahan.
 
 ## Anggota B
 

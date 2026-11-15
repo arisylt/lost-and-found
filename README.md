@@ -62,14 +62,6 @@ Konsekuensi yang perlu diketahui:
   deposit tidak dihapus; loker dianggap kosong dari status barang
   (`Sudah Diambil`), bukan dari `id_locker`.
 
-## Uji otomatis
-
-Skrip Expect di `test/` membangun `build/lostfound-test` dan memakai direktori sementara sendiri, sehingga data di root repo tidak tersentuh.
-
-```bash
-for f in test/*.exp; do expect "$f"; done
-```
-
 ## Struktur kode
 
 Semua kode ada dalam satu file: `src/main.cpp`. Setiap pemilik bekerja hanya pada bagian yang diberi banner namanya; library dan `using namespace std;` hanya ada sekali di bagian paling atas.

@@ -1,0 +1,64 @@
+#!/usr/bin/expect -f
+# Passwords and locker access codes are stored as SHA-256 digests (RAT:
+# users.password_hash and access_codes.code_hash), while the value typed by the
+# user still works.
+source [file join [file dirname [info script]] lib.exp]
+
+prepareTest
+set workspace [newWorkspace]
+
+startAppIn $workspace
+
+set password "test123"
+set nim "94[expr {[pid] % 100000}]"
+registerStudent $nim "Test Hash [expr {[pid] % 100000}]" 2 "hash-[expr {[pid] % 100000}]@example.test" "092[expr {[pid] % 100000}]" $password
+
+# The stored password is a digest and never the typed password.
+expectSql "SELECT LENGTH(password_hash) FROM users WHERE nim = '$nim'" "64"
+expectSql "SELECT password_hash = '$password' FROM users WHERE nim = '$nim'" "0"
+expectSql {SELECT COUNT(*) FROM users WHERE password_hash REGEXP '^[0-9a-f]{64}$'} "4"
+
+sendLine 2
+sendLine $nim
+sendLine $password
+expectText "Selamat datang, $nim!"
+logoutStudent
+exitApp
+
+# Access codes: only the digest is stored, the printed code still opens the door.
+startAppIn $workspace
+loginStudent $nim $password
+sendLine 1
+sendLine "Barang Kode Hash $nim"
+sendLine 4
+sendLine 3
+sendLine [clock format [clock seconds] -format "%Y-%m-%d"]
+sendLine "Barang untuk test hash kode"
+sendLine "rahasia kode $nim"
+expect {
+  -re {Kode titip: ([0-9]+)} { set depositCode $expect_out(1,string) }
+  timeout {
+    puts stderr "Kode titip tidak ditampilkan."
+    exit 1
+  }
+}
+if {[string length $depositCode] != 6} {
+  puts stderr "Kode yang ditampilkan bukan kode asli: $depositCode"
+  exit 1
+}
+
+# While the reservation is live only the digest reaches the database.
+expectSql "SELECT tipe FROM access_codes" "titip"
+expectSql "SELECT LENGTH(code_hash) FROM access_codes" "64"
+expectSql "SELECT code_hash = '$depositCode' FROM access_codes" "0"
+
+sendLine $depositCode
+expectText {\[OK\] Pintu loker terbuka\.}
+sendLine 1
+expectText {\[OK\] Penitipan selesai\.}
+sendLine ""
+logoutStudent
+exitApp
+
+# The used code is gone once the drop-off is confirmed.
+expectSql "SELECT COUNT(*) FROM access_codes" 0

@@ -1,6 +1,6 @@
 # Flowchart tests
 
-Skrip Expect ini membagi `docs/flowchart.md` menurut alurnya. Setiap skrip membangun `build/lostfound-test`, memakai data unik berdasarkan PID, dan memeriksa keluaran penting.
+Skrip Expect ini membagi `docs/flowchart.md` menurut alurnya. Setiap skrip membangun `build/lostfound-test` (dengan flag MySQL), membuat database sendiri dari `schema.sql`, lalu memeriksa keluaran program dan isi tabelnya.
 
 | Skrip | Alur yang dicakup |
 | --- | --- |
@@ -14,16 +14,15 @@ Skrip Expect ini membagi `docs/flowchart.md` menurut alurnya. Setiap skrip memba
 | `08-locker-log.exp` | Urutan event log loker dari alur titip lalu ambil, dan log bertahan setelah restart |
 | `09-claim-status.exp` | Status klaim: Diblokir, Disetujui admin, Selesai setelah pengambilan, bertahan setelah restart |
 | `10-unique-email.exp` | Email ganda ditolak tanpa membuat akun setengah jadi, email beda berhasil |
-| `11-legacy-data.exp` | File .txt format lama (users 5 kolom, items 8/16 kolom, claims 3 kolom) tetap terbaca lalu ditulis ulang ke format baru |
-| `12-deposit-timestamps.exp` | Stempel reserved_at/deposited_at/picked_up_at dan used_at kode bertahan setelah restart |
-| `13-claim-detail.exp` | Detail jawaban pengklaim tersimpan dan tampil di daftar klaim diblokir admin |
-| `14-hashing.exp` | Password dan kode loker tersimpan sebagai digest SHA-256, plaintext lama di-upgrade saat login |
-| `15-field-limits.exp` | NIM dan nama barang ditolak bila melebihi ukuran varchar pada RAT |
-| `16-mysql-mirror.exp` | Build `-DUSE_MYSQL` menyalin data ke tabel `schema.sql`; otomatis SKIP bila server/klien tidak ada |
+| `11-deposit-timestamps.exp` | Stempel reserved_at/deposited_at/picked_up_at dan status deposit tersimpan di database |
+| `12-claim-detail.exp` | Detail jawaban pengklaim tersimpan dan tampil di daftar klaim diblokir admin |
+| `13-hashing.exp` | Password dan kode loker tersimpan sebagai digest SHA-256, bukan teks asli |
+| `14-field-limits.exp` | NIM dan nama barang ditolak bila melebihi ukuran varchar pada RAT |
 
 ## Menjalankan
 
-Setiap skrip memakai direktori sementara sendiri, jadi tidak membutuhkan database atau konfigurasi tambahan.
+Setiap skrip memakai direktori sementara dan database sendiri, jadi data proyek
+tidak tersentuh.
 
 ```sh
 expect test/01-authentication.exp
@@ -36,21 +35,23 @@ expect test/07-lock-restart.exp
 expect test/08-locker-log.exp
 expect test/09-claim-status.exp
 expect test/10-unique-email.exp
-expect test/11-legacy-data.exp
-expect test/12-deposit-timestamps.exp
-expect test/13-claim-detail.exp
-expect test/14-hashing.exp
-expect test/15-field-limits.exp
+expect test/11-deposit-timestamps.exp
+expect test/12-claim-detail.exp
+expect test/13-hashing.exp
+expect test/14-field-limits.exp
 ```
 
-Skrip MySQL butuh server dan klien. Tanpa keduanya skrip berhenti dengan status
-0 dan mencetak `SKIP`, jadi aman dijalankan di mesin tanpa database.
+Database dibutuhkan oleh semua skrip. Nama database tiap skrip diturunkan dari
+nama file (`lostfound_test_07_lock_restart`), dibuat ulang setiap kali dijalankan.
 
 ```sh
-LF_DB_HOST=127.0.0.1 LF_DB_PORT=3306 LF_DB_USER=root \
-LF_DB_NAME=lostfound_test LF_DB_ADMIN_ARGS="-u root" \
-expect test/16-mysql-mirror.exp
+export LF_DB_HOST=127.0.0.1 LF_DB_PORT=3306 LF_DB_USER=root LF_DB_PASS=rahasia
+export LF_DB_ADMIN_ARGS="-u root -prahasia"   # dipakai klien mariadb untuk setup
+expect test/01-authentication.exp
 ```
+
+Tanpa `LF_DB_ADMIN_ARGS`, klien memakai opsi default pengguna saat ini. Jika
+server tidak dapat dihubungi, skrip berhenti dengan pesan yang jelas.
 
 `demo.exp` di root repo menjalankan demo penuh untuk presentasi (membangun
 ulang `lostfound` lebih dulu agar tidak memakai binary lama).

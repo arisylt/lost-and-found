@@ -112,5 +112,5 @@ Sebelum memulai, jalankan `git pull --rebase` dan baca TODO pada fungsi yang dik
 - [ ] `src/main.cpp` memuat library dan `using namespace std;` sekali di bagian paling atas.
 - [ ] Build: `g++ -std=c++11 -Wall -Wextra src/main.cpp -o lostfound`.
 - [ ] Tidak ada warning baru yang berarti.
-- [ ] Tidak ada file data pribadi di Git (`data/*.txt` diabaikan).
+- [ ] Tidak ada kredensial database di Git (pakai variabel `LF_DB_*` dari environment).
 - [ ] Reviewer mencocokkan perubahan dengan TODO dan tes manual terkait.

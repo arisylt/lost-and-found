@@ -4,59 +4,54 @@ Kerangka proyek C++ terminal untuk tim mahasiswa semester 1. Program akan mencat
 
 ## Build dan jalankan
 
-**Patokan utama:** seluruh program berada di `src/main.cpp`; kompilasi file itu dengan perintah berikut.
-
-```bash
-g++ -std=c++11 -Wall -Wextra src/main.cpp -o lostfound
-./lostfound
-```
-
-
-Pilih `3` pada menu tamu untuk keluar.
-
-## Format file data
-
-Semua data disimpan sebagai file teks di direktori tempat program dijalankan, dengan pemisah `|`. File yang tidak ada dianggap kosong, dan format lama tetap terbaca.
-
-| File | Kolom |
-| --- | --- |
-| `users.txt` | `username\|passwordHash\|phone\|failed\|locked\|fullName\|major\|email\|role\|lockedUntil` |
-| `found_items.txt` | `reporter\|name\|category\|location\|date\|description\|secret\|status\|(cadangan)\|locker\|depositCodeHash\|reservationExpiry\|claimant\|pickupCodeHash\|pickupExpiry\|pickupFailed\|depositFailed\|reservedAt\|depositedAt\|pickedUpAt\|depositCodeUsedAt\|pickupCodeUsedAt` |
-| `lost_reports.txt` | `reporter\|name\|category\|location\|date\|description\|status` |
-| `claims.txt` | `item\|user\|failed\|status\|claimedAt\|verifiedAt\|detailClaim` |
-| `lockers.txt` | satu baris per loker: `1` rusak, `0` siap |
-| `locker_logs.txt` | `locker\|item\|type\|time\|note`, maksimal 500 entri terakhir |
-
-Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong; nomornya dipertahankan agar file lama tidak bergeser. Lokasi dan kategori disimpan sebagai nama dari daftar pilihan di bagian atas `main.cpp`. Password dan kode akses disimpan sebagai digest SHA-256 (64 karakter hex); nilai lama yang masih plaintext tetap bisa dipakai lalu di-upgrade saat berhasil login. Panjang teks mengikuti ukuran `varchar` pada ERD/RAT.
-
-## Mirror MySQL (opsional)
-
-File `.txt` tetap menjadi sumber data utama. Jika program dikompilasi dengan
-`-DUSE_MYSQL`, setiap `saveAll()` juga menyalin seluruh data ke MySQL dalam satu
-transaksi, mengikuti skema `schema.sql`. Tanpa flag itu tidak ada kode MySQL yang
-ikut dikompilasi, jadi build biasa tidak berubah.
+Seluruh program berada di `src/main.cpp` dan **MySQL adalah satu-satunya
+penyimpanan**; tidak ada file `.txt` lagi. Siapkan database sekali, lalu
+kompilasi dengan flag dari `mysql_config`.
 
 ```bash
 mariadb -u root -p < schema.sql
 
-g++ -std=c++11 -Wall -Wextra -DUSE_MYSQL $(mysql_config --cflags) \
-    src/main.cpp -o lostfound-db $(mysql_config --libs)
-
-export LF_DB_HOST=127.0.0.1 LF_DB_PORT=3306
-export LF_DB_USER=lf LF_DB_PASS=rahasia LF_DB_NAME=lostfound
-./lostfound-db
+g++ -std=c++11 -Wall -Wextra $(mysql_config --cflags) \
+    src/main.cpp -o lostfound $(mysql_config --libs)
+./lostfound
 ```
 
-Bila server tidak dapat dihubungi, program tetap berjalan dengan file `.txt` dan
-hanya menampilkan satu pesan `[DB]`. Nilai yang tidak ada di `.txt` ditulis
-sebagai `NULL` (email kosong, timestamp kosong), sedangkan kolom `NOT NULL`
-seperti `access_codes.expires_at` dan `locker_event_logs.waktu` memakai epoch
-`1970-01-01 00:00:00`. Baris lama yang tidak bisa dipetakan (tanggal rusak,
-pemilik tidak dikenal) dilewati dan dihitung, bukan menggagalkan semua.
+Konfigurasi koneksi dibaca dari environment (semua punya default):
 
-Setiap sinkronisasi menghapus lalu menulis ulang semua tabel, jadi data di MySQL
-tidak boleh diubah manual: akan tertimpa. Untuk data besar, ganti dengan
-`INSERT ... ON DUPLICATE KEY UPDATE`.
+| Variabel | Default | Isi |
+| --- | --- | --- |
+| `LF_DB_HOST` | `127.0.0.1` | host MySQL |
+| `LF_DB_PORT` | `3306` | port |
+| `LF_DB_USER` | `lf` | user database |
+| `LF_DB_PASS` | kosong | password |
+| `LF_DB_NAME` | `lostfound` | nama database |
+
+Bila koneksi gagal, program berhenti dengan pesan `[DB]` dan daftar variabel di
+atas. Pilih `3` pada menu tamu untuk keluar.
+
+## Penyimpanan
+
+Seluruh array di `main.cpp` adalah salinan kerja dari isi database: `loadAll()`
+membacanya sekali saat program mulai, dan `saveAll()` menulis ulang semua tabel
+dalam satu transaksi setiap ada perubahan. Skema ada di `schema.sql` (tabel
+`users`, `categories`, `locations`, `lockers`, `items`, `lost_reports`, `claims`,
+`deposits`, `access_codes`, `locker_event_logs`).
+
+Konsekuensi yang perlu diketahui:
+
+- Data di MySQL **tidak boleh diubah manual** saat program berjalan; perubahan
+  akan tertimpa oleh `saveAll()` berikutnya.
+- `saveAll()` menghapus lalu menulis ulang seluruh tabel. Untuk proyek ini
+  ukurannya kecil; jika nanti besar, ganti dengan `INSERT ... ON DUPLICATE KEY
+  UPDATE`.
+- Password dan kode loker disimpan sebagai digest SHA-256 (64 karakter hex),
+  tanpa salt. Cukup untuk latihan, belum layak untuk aplikasi nyata.
+- Status disimpan apa adanya dalam bahasa Indonesia (`Tersedia`,
+  `Menunggu Dititipkan`, `Disetujui`, `Diblokir`, `Dicari`, ...) karena kolom
+  status di `schema.sql` bertipe `VARCHAR` tanpa enumerasi.
+- Kolom `deposits.picked_up_at` tetap terisi setelah pengambilan karena baris
+  deposit tidak dihapus; loker dianggap kosong dari status barang
+  (`Sudah Diambil`), bukan dari `id_locker`.
 
 ## Uji otomatis
 
@@ -93,9 +88,7 @@ Semua kode ada dalam satu file: `src/main.cpp`. Setiap pemilik bekerja hanya pad
 
 - Fase 1 **tidak memakai** `.h`, `struct`, `vector`, class, pointer, referensi, atau template. Semua data ada pada array paralel global.
 - Semua bagian sengaja digabung dalam satu `main.cpp`; banner kepemilikan menjaga pembagian kerja tetap jelas.
-- Password disimpan polos (apa adanya). Ini tidak aman untuk aplikasi nyata dan hanya boleh untuk latihan.
-- Akun yang terkunci tidak memiliki jalur buka dari menu; kunci 15 menit tersimpan di `users.txt` dan tetap berlaku setelah program ditutup, jadi cara membukanya adalah mengedit data.
-- Penyimpanan file teks selalu aktif; `loadAll`/`saveAll` menerima format kolom lama maupun baru.
+- Akun yang terkunci tidak memiliki jalur buka dari menu; kunci 15 menit tersimpan di `users.locked_until` dan tetap berlaku setelah program ditutup, jadi cara membukanya adalah mengedit database.
 - Tidak ada penghapusan data; indeks array tidak bergeser. Admin demo (`admin` / `admin123`) memiliki menu anomali, penanganan barang, klaim diblokir, status loker, log loker, dan logout.
 - Password dan kode loker disimpan sebagai digest SHA-256 tanpa salt. Cukup untuk latihan, belum layak untuk aplikasi nyata; kode 6 digit juga hanya punya sejuta kemungkinan.
 

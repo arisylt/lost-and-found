@@ -97,7 +97,7 @@ sendLine ""
 logoutStudent
 exitApp
 
-# The finished status is read back from claims.txt after a restart.
+# The finished status is read back from claims after a restart.
 startAppIn $workspace
 loginStudent $claimant $password
 sendLine 3

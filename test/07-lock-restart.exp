@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
-# An account lock must survive a program restart, so users.txt has to keep
-# the lock expiry timestamp and not only the locked flag.
+# An account lock must survive a program restart, so the database has to
+# keep the lock expiry timestamp and not only the locked flag.
 source [file join [file dirname [info script]] lib.exp]
 
 prepareTest

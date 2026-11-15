@@ -6,7 +6,7 @@ source [file join [file dirname [info script]] lib.exp]
 prepareTest
 startApp
 
-set suffix [pid]
+set suffix [expr {[pid] % 100000}]
 set finder "92$suffix"
 set claimant "93$suffix"
 set password "test123"
@@ -59,10 +59,7 @@ sendLine 6
 expectText {MAIN MENU}
 exitApp
 
-set handle [open [file join $workspace claims.txt] r]
-set line [gets $handle]
-close $handle
-if {![regexp {^2\|4\|0\|Ditolak\|0\|0\|jawaban salah 3$} $line]} {
-  puts stderr "claims.txt tidak menyimpan detail klaim: $line"
-  exit 1
-}
+# The database keeps the last answer and the rejection.
+expectSql "SELECT detail_claim FROM claims" "jawaban salah 3"
+expectSql "SELECT status FROM claims" "Ditolak"
+expectSql "SELECT failed_count FROM claims" "0"

@@ -34,9 +34,21 @@ set project [file normalize [file dirname [info script]]]
 set binary "$project/lostfound"
 # Always rebuild, otherwise a stale binary silently demos old behaviour.
 puts "Membangun lostfound..."
-if {[catch {exec g++ -std=c++11 -Wall -Wextra "$project/src/main.cpp" -o $binary} message]} {
+set cflags [string trim [exec mysql_config --cflags]]
+set libs [string trim [exec mysql_config --libs]]
+set buildCommand [concat g++ -std=c++11 -Wall -Wextra $cflags \
+                      "$project/src/main.cpp" -o $binary $libs]
+if {[catch {exec {*}$buildCommand} message]} {
   puts stderr $message
   exit 1
+}
+
+# The demo writes to the configured database (default: lostfound) and replaces
+# its contents, so point LF_DB_NAME at a spare database when in doubt.
+if {[info exists ::env(LF_DB_NAME)]} {
+  puts "Database demo: $::env(LF_DB_NAME)"
+} else {
+  puts "Database demo: lostfound (default)"
 }
 
 # shortcut: keeps data only in a temporary workspace; use persistent files to retain a demo.

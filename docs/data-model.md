@@ -81,35 +81,42 @@ Record pengguna valid berada pada indeks `0` sampai `userCount - 1`.
 
 `claimItem`, `claimUser`, dan `claimFailed` adalah satu record. Satu pasangan item-pengguna harus mempunyai satu baris percobaan klaim.
 
-## Format file
+## Penyimpanan: MySQL
 
-Storage memakai file teks di direktori kerja, satu record per baris, pemisah `|`. Semua teks perlu disanitasi: `|`, newline, dan carriage return diganti `/`. File yang tidak ada berarti jumlah record terkait `0`; baris dengan jumlah kolom tak dikenal dilewati. `loadAll` menerima format kolom lama maupun baru, jadi file sebelum perubahan tetap terbaca.
+Database adalah satu-satunya penyimpanan; tidak ada file teks. `loadAll()`
+membaca semua tabel ke array saat program mulai, dan `saveAll()` menulis ulang
+semua tabel dalam satu transaksi setelah setiap perubahan. Skema lengkap ada di
+`schema.sql`.
 
-| File | Urutan field | Contoh satu baris valid |
-| --- | --- | --- |
-| `users.txt` | `nim|password|phone|failed|locked(0/1)|fullName|major|email|role|lockedUntil` | `12345|6b3b...9f|08123456789|0|0|Andi|Informatika|andi@example.com|Mahasiswa|0` |
-| `found_items.txt` | `reporterIndex|name|category|location|date|description|secret|status|cadangan|locker|depositCode|reservationExpiry|claimant|pickupCode|pickupExpiry|pickupFailed|depositFailed|reservedAt|depositedAt|pickedUpAt|depositCodeUsedAt|pickupCodeUsedAt` | `0|Payung|Aksesoris|Kantin|2025-08-17|Payung hitam|Pegangan kayu|Tersedia||0||0|-1||0|0|0|0|0|0|0|0` |
-| `lost_reports.txt` | `reporterIndex|name|category|location|date|description|status` | `1|Dompet|Aksesoris|Perpustakaan|2025-08-16|Warna cokelat|Dicari` |
-| `claims.txt` | `itemIndex|userIndex|failedCount|status|claimedAt|verifiedAt|detailClaim` | `0|1|2|Diblokir|0|0|jawaban pengklaim` |
-| `lockers.txt` | satu baris per loker: `1` rusak, `0` siap | `0` |
-| `locker_logs.txt` | `lockerIndex|itemIndex|tipeEvent|waktu|keterangan` | `2|5|RESERVASI|1730000000|Payung Hitam` |
+| Tabel | Array tujuan / sumber |
+| --- | --- |
+| `users` | `userName`, `userPassword` (hash), `userPhone`, `userFailed`, `userLockedUntil`, `userFullName`, `userMajor`, `userEmail`, `userRole` |
+| `lockers` | `lockerBroken` dari `status = 'Rusak'` |
+| `items` | `foundReporter` (lewat `nim_penemu`), `foundCategory`/`foundLocation` (lewat join), `foundDate`, `foundName`, `foundDescription`, `foundSecret`, `foundStatus` |
+| `lost_reports` | `lostReporter`, `lostCategory`, `lostLocation`, `lostDate`, `lostName`, `lostDescription`, `lostStatus` |
+| `claims` | `claimItem`, `claimUser`, `claimDetail`, `claimFailed`, `claimStatus`, `claimClaimedAt`, `claimVerifiedAt` |
+| `deposits` | `foundLocker`, `foundReservedAt`, `foundReservationExpiry`, `foundDepositedAt`, `foundPickedUpAt` |
+| `access_codes` | `foundDepositCode`/`foundPickupCode` (hash), expiry, `used_at`, `failed_count`, `foundClaimant` |
+| `locker_event_logs` | `logLocker`, `logItem`, `logType`, `logTime`, `logNote` |
 
-Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong: nomornya dipertahankan agar file lama tidak bergeser. Kolom `password` dan kode akses berisi digest SHA-256 (64 karakter hex); nilai lama yang masih plaintext tetap diterima lalu di-upgrade saat berhasil dipakai.
+Karena `saveAll()` menulis dengan id eksplisit (`id_item = indeks + 1`,
+`id_claim = indeks klaim + 1`), memuat ulang tinggal membalik pemetaan itu.
+Kategori, jurusan, dan lokasi tetap disimpan sebagai nama di array, sedangkan di
+database berupa id yang di-join.
 
-Kategori, jurusan, dan lokasi disimpan sebagai nama dari daftar di bagian atas `src/main.cpp`, mengikuti tabel `categories`, `locations`, dan `majors` pada ERD. Panjang teks dibatasi mengikuti `varchar` di RAT agar tidak terpotong saat diimpor ke database.
-
-## Mirror MySQL
-
-Build dengan `-DUSE_MYSQL` menyalin seluruh array ke skema `schema.sql` setiap
-`saveAll()` selesai (satu transaksi, `DELETE` lalu `INSERT`). File `.txt` tetap
-sumber data utama; `loadAll` tidak membaca database. Nilai status disalin apa
-adanya (`Disetujui`, `Diblokir`, `Dicari`, `Menunggu`, `Aktif`, ...) karena semua
-kolom status di `schema.sql` bertipe `VARCHAR` tanpa enumerasi. Email kosong dan
-timestamp yang belum ada menjadi `NULL`; hanya `access_codes.expires_at` dan
+Status disimpan apa adanya dalam bahasa Indonesia (`Tersedia`, `Menunggu
+Dititipkan`, `Disetujui`, `Diblokir`, `Dicari`, `Menunggu`/`Tersimpan`/`Diambil`
+untuk deposit, `Aktif`/`Rusak` untuk loker) karena semua kolom status di
+`schema.sql` bertipe `VARCHAR` tanpa enumerasi. Email kosong dan timestamp yang
+belum ada menjadi `NULL`; hanya `access_codes.expires_at` dan
 `locker_event_logs.waktu` yang memakai epoch karena `NOT NULL`.
+
+Baris deposit tidak dihapus saat pengambilan selesai, sehingga `picked_up_at`
+tetap tercatat. Loker dianggap kosong dari status barang (`Sudah Diambil` atau
+`Reservasi Batal`), bukan dari nilai `id_locker`.
 
 ## Selisih yang masih terbuka
 
-- `access_codes` pada RAT adalah tabel tersendiri; di sini kode titip dan kode ambil hanya satu per barang, sehingga `used_at` menyimpan pemakaian kode terakhir.
+- `access_codes` hanya menyimpan kode yang masih aktif: begitu kode dipakai dan dihapus dari array, barisnya ikut hilang, jadi `used_at` paling lama hanya bertahan sampai kode tersebut hangus.
 - `locations.detail` belum dipakai karena CLI hanya memilih nama lokasi.
-- `deposits.status` bertipe `varchar(15)`, sedangkan status barang `Menunggu Dititipkan` panjangnya 19 karakter dan disimpan pada `items.status varchar(20)`.
+- `deposits.status` bertipe `varchar(15)` dan memakai nilai pendek (`Menunggu`, `Tersimpan`, `Diambil`, `Periksa`, `Batal`), sedangkan status barang lengkap ada di `items.status varchar(20)`.

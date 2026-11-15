@@ -1,8 +1,80 @@
-# Shared Expect helpers for the flowchart demos.
+# Shared Expect helpers for the flowchart demos. Each script gets its own MySQL
+# database created from schema.sql; the plain text files are gone.
 
 set testDir [file normalize [file dirname [info script]]]
 set project [file normalize "$testDir/.."]
 set binary "$project/build/lostfound-test"
+set ::dbName ""
+
+# Extra arguments for the mariadb client, e.g. "--socket=/tmp/x.sock -u root".
+proc dbClientArgs {} {
+  if {[info exists ::env(LF_DB_ADMIN_ARGS)]} {
+    return $::env(LF_DB_ADMIN_ARGS)
+  }
+  return {}
+}
+
+# Runs one SQL statement without selecting a database.
+proc dbAdmin {statement} {
+  return [exec mariadb {*}[dbClientArgs] -N -e $statement 2>@1]
+}
+
+# Runs one SQL statement inside this script's database.
+proc dbQuery {statement} {
+  global dbName
+  return [exec mariadb {*}[dbClientArgs] -N $dbName -e $statement 2>@1]
+}
+
+# Fails the script when a scalar query does not return the expected text.
+proc expectSql {statement expected} {
+  set actual [string trim [dbQuery $statement]]
+  if {$actual != $expected} {
+    puts stderr "Query '$statement' menghasilkan '$actual', seharusnya '$expected'."
+    exit 1
+  }
+}
+
+# Creates the database for this run from schema.sql, once per script.
+proc prepareDatabase {} {
+  global project dbName
+
+  if {$dbName != ""} {
+    return $dbName
+  }
+  if {[catch {dbAdmin "SELECT 1"} message]} {
+    puts stderr "Butuh server MySQL: $message"
+    exit 1
+  }
+
+  # One fixed database per script: a leftover from an interrupted run is simply
+  # dropped again on the next start, and restart scenarios reuse the same data.
+  global argv0
+  set dbName "lostfound_test_[string map {- _ . _} [file rootname [file tail $argv0]]]"
+  dbAdmin "DROP DATABASE IF EXISTS $dbName"
+  dbAdmin "CREATE DATABASE $dbName CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+
+  # schema.sql targets the database name "lostfound"; drop those statements.
+  set handle [open "$project/schema.sql" r]
+  set schema [read $handle]
+  close $handle
+  regsub -all {CREATE DATABASE[^;]*;} $schema "" schema
+  regsub -all {USE [^;]*;} $schema "" schema
+  set scratch "/tmp/lostfound-schema-[pid].sql"
+  set out [open $scratch w]
+  puts -nonewline $out $schema
+  close $out
+  set in [open $scratch r]
+  if {[catch {exec mariadb {*}[dbClientArgs] $dbName <@$in} message]} {
+    close $in
+    puts stderr "schema.sql gagal dimuat: $message"
+    exit 1
+  }
+  close $in
+  file delete -force $scratch
+
+  set ::env(LF_DB_NAME) $dbName
+  return $dbName
+}
 
 proc sendLine {text {pause 120}} {
   send -- "$text\r"
@@ -27,8 +99,15 @@ proc prepareTest {} {
   global project binary
 
   file mkdir "$project/build"
-  set buildCommand [list g++ -std=c++11 -Wall -Wextra "$project/src/main.cpp" -o $binary]
-  if {[catch {eval exec $buildCommand} message]} {
+  if {[catch {exec mysql_config --cflags} message]} {
+    puts stderr "mysql_config tidak ditemukan: $message"
+    exit 1
+  }
+  set cflags [string trim [exec mysql_config --cflags]]
+  set libs [string trim [exec mysql_config --libs]]
+  set buildCommand [concat g++ -std=c++11 -Wall -Wextra $cflags \
+                        $project/src/main.cpp -o $binary $libs]
+  if {[catch {exec {*}$buildCommand} message]} {
     puts stderr $message
     exit 1
   }
@@ -45,6 +124,7 @@ proc newWorkspace {} {
 proc startAppIn {workspace} {
   global binary spawn_id
 
+  prepareDatabase
   spawn sh -c "cd '$workspace' && exec '$binary'"
   log_user 1
   after 250

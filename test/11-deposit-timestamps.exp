@@ -1,0 +1,73 @@
+#!/usr/bin/expect -f
+# The deposit cycle is stored in the database: deposits keeps the reservation,
+# the drop-off, and the pickup timestamps, and access_codes keeps the keypad
+# failure count of the active deposit code.
+source [file join [file dirname [info script]] lib.exp]
+
+prepareTest
+
+set suffix [expr {[pid] % 100000}]
+set finder "88$suffix"
+set claimant "89$suffix"
+set password "test123"
+set item "Test Timestamp $suffix"
+set secret "detail timestamp $suffix"
+set workspace [newWorkspace]
+startAppIn $workspace
+
+registerStudent $finder "Test Penemu Stempel $suffix" 1 "stamp-finder-$suffix@example.test" "098$suffix" $password
+loginStudent $finder $password
+depositItem $item 3 2 "Barang untuk test stempel" $secret 1
+
+# While the item sits in the locker the deposit row holds both stamps.
+expectSql "SELECT deposits.status FROM deposits JOIN items USING (id_item) WHERE items.nama_barang = '$item'" "Tersimpan"
+expectSql "SELECT deposits.reserved_at IS NOT NULL FROM deposits JOIN items USING (id_item) WHERE items.nama_barang = '$item'" "1"
+expectSql "SELECT deposits.deposited_at IS NOT NULL FROM deposits JOIN items USING (id_item) WHERE items.nama_barang = '$item'" "1"
+expectSql "SELECT deposits.picked_up_at IS NULL FROM deposits JOIN items USING (id_item) WHERE items.nama_barang = '$item'" "1"
+expectSql "SELECT COUNT(*) FROM access_codes" 0
+logoutStudent
+exitApp
+
+# After a restart the same row is read back and the item can still be claimed.
+startAppIn $workspace
+registerStudent $claimant "Test Pengklaim Stempel $suffix" 2 "stamp-claimant-$suffix@example.test" "099$suffix" $password
+loginStudent $claimant $password
+sendLine 2
+sendLine $item
+sendLine 0
+sendLine 0
+expect {
+  -re [format {\[([0-9]+)\] %s} $item] { set itemNumber $expect_out(1,string) }
+  timeout {
+    puts stderr "Barang test tidak muncul setelah restart."
+    exit 1
+  }
+}
+sendLine $itemNumber
+sendLine $secret
+expect {
+  -re {Kode ambil berlaku 24 jam: ([0-9]+)} { set pickupCode $expect_out(1,string) }
+  timeout {
+    puts stderr "Kode ambil tidak ditampilkan."
+    exit 1
+  }
+}
+
+# The pending pickup code is stored as a digest with its expiry.
+expectSql "SELECT tipe FROM access_codes" "ambil"
+expectSql "SELECT LENGTH(code_hash) FROM access_codes" "64"
+expectSql "SELECT expires_at > NOW() FROM access_codes" "1"
+
+sendLine $pickupCode
+expectText {\[OK\] Pintu loker terbuka\.}
+sendLine 1
+expectText {\[OK\] Pengambilan selesai\.}
+sendLine ""
+logoutStudent
+exitApp
+
+# The deposit row now records the pickup and stops holding the locker.
+expectSql "SELECT deposits.status FROM deposits JOIN items USING (id_item) WHERE items.nama_barang = '$item'" "Diambil"
+expectSql "SELECT deposits.picked_up_at IS NOT NULL FROM deposits JOIN items USING (id_item) WHERE items.nama_barang = '$item'" "1"
+expectSql "SELECT items.status FROM items WHERE nama_barang = '$item'" "Sudah Diambil"
+expectSql "SELECT COUNT(*) FROM access_codes" 0

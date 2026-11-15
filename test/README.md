@@ -14,6 +14,11 @@ Skrip Expect ini membagi `docs/flowchart.md` menurut alurnya. Setiap skrip memba
 | `08-locker-log.exp` | Urutan event log loker dari alur titip lalu ambil, dan log bertahan setelah restart |
 | `09-claim-status.exp` | Status klaim: Diblokir, Disetujui admin, Selesai setelah pengambilan, bertahan setelah restart |
 | `10-unique-email.exp` | Email ganda ditolak tanpa membuat akun setengah jadi, email beda berhasil |
+| `11-legacy-data.exp` | File .txt format lama (users 5 kolom, items 8/16 kolom, claims 3 kolom) tetap terbaca lalu ditulis ulang ke format baru |
+| `12-deposit-timestamps.exp` | Stempel reserved_at/deposited_at/picked_up_at dan used_at kode bertahan setelah restart |
+| `13-claim-detail.exp` | Detail jawaban pengklaim tersimpan dan tampil di daftar klaim diblokir admin |
+| `14-hashing.exp` | Password dan kode loker tersimpan sebagai digest SHA-256, plaintext lama di-upgrade saat login |
+| `15-field-limits.exp` | NIM dan nama barang ditolak bila melebihi ukuran varchar pada RAT |
 
 ## Menjalankan
 
@@ -30,4 +35,12 @@ expect test/07-lock-restart.exp
 expect test/08-locker-log.exp
 expect test/09-claim-status.exp
 expect test/10-unique-email.exp
+expect test/11-legacy-data.exp
+expect test/12-deposit-timestamps.exp
+expect test/13-claim-detail.exp
+expect test/14-hashing.exp
+expect test/15-field-limits.exp
 ```
+
+`demo.exp` di root repo menjalankan demo penuh untuk presentasi (membangun
+ulang `lostfound` lebih dulu agar tidak memakai binary lama).

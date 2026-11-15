@@ -20,14 +20,14 @@ Semua data disimpan sebagai file teks di direktori tempat program dijalankan, de
 
 | File | Kolom |
 | --- | --- |
-| `users.txt` | `username\|password\|phone\|failed\|locked\|fullName\|major\|email\|role\|lockedUntil` |
-| `found_items.txt` | `reporter\|name\|category\|location\|date\|description\|secret\|status\|(cadangan)\|locker\|depositCode\|reservationExpiry\|claimant\|pickupCode\|pickupExpiry\|pickupFailed` |
-| `lost_reports.txt` | `reporter\|name\|category\|location\|date\|description` |
-| `claims.txt` | `item\|user\|failed\|status\|claimedAt\|verifiedAt` |
+| `users.txt` | `username\|passwordHash\|phone\|failed\|locked\|fullName\|major\|email\|role\|lockedUntil` |
+| `found_items.txt` | `reporter\|name\|category\|location\|date\|description\|secret\|status\|(cadangan)\|locker\|depositCodeHash\|reservationExpiry\|claimant\|pickupCodeHash\|pickupExpiry\|pickupFailed\|depositFailed\|reservedAt\|depositedAt\|pickedUpAt\|depositCodeUsedAt\|pickupCodeUsedAt` |
+| `lost_reports.txt` | `reporter\|name\|category\|location\|date\|description\|status` |
+| `claims.txt` | `item\|user\|failed\|status\|claimedAt\|verifiedAt\|detailClaim` |
 | `lockers.txt` | satu baris per loker: `1` rusak, `0` siap |
 | `locker_logs.txt` | `locker\|item\|type\|time\|note`, maksimal 500 entri terakhir |
 
-Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong; nomornya dipertahankan agar file lama tidak bergeser. Lokasi dan kategori disimpan sebagai nama dari daftar pilihan di bagian atas `main.cpp`.
+Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong; nomornya dipertahankan agar file lama tidak bergeser. Lokasi dan kategori disimpan sebagai nama dari daftar pilihan di bagian atas `main.cpp`. Password dan kode akses disimpan sebagai digest SHA-256 (64 karakter hex); nilai lama yang masih plaintext tetap bisa dipakai lalu di-upgrade saat berhasil login. Panjang teks mengikuti ukuran `varchar` pada ERD/RAT.
 
 ## Uji otomatis
 
@@ -68,7 +68,7 @@ Semua kode ada dalam satu file: `src/main.cpp`. Setiap pemilik bekerja hanya pad
 - Akun yang terkunci tidak memiliki jalur buka dari menu; kunci 15 menit tersimpan di `users.txt` dan tetap berlaku setelah program ditutup, jadi cara membukanya adalah mengedit data.
 - Penyimpanan file teks selalu aktif; `loadAll`/`saveAll` menerima format kolom lama maupun baru.
 - Tidak ada penghapusan data; indeks array tidak bergeser. Admin demo (`admin` / `admin123`) memiliki menu anomali, penanganan barang, klaim diblokir, status loker, log loker, dan logout.
-- Password dan kode loker disimpan polos tanpa hashing. Ini keputusan yang masih terbuka untuk tim.
+- Password dan kode loker disimpan sebagai digest SHA-256 tanpa salt. Cukup untuk latihan, belum layak untuk aplikasi nyata; kode 6 digit juga hanya punya sejuta kemungkinan.
 
 Baca `docs/data-model.md` sebelum mengubah array dan `docs/TASKS.md` sebelum mulai mengisi TODO.
 

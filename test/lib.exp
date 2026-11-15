@@ -34,15 +34,24 @@ proc prepareTest {} {
   }
 }
 
-proc startApp {} {
-  global binary spawn_id
-
+# Creates an empty workspace and returns its path for restart scenarios.
+proc newWorkspace {} {
   set workspace "/tmp/lostfound-test-[pid]-[clock microseconds]"
   file delete -force $workspace
   file mkdir $workspace
+  return $workspace
+}
+
+proc startAppIn {workspace} {
+  global binary spawn_id
+
   spawn sh -c "cd '$workspace' && exec '$binary'"
   log_user 1
   after 250
+}
+
+proc startApp {} {
+  startAppIn [newWorkspace]
 }
 
 proc registerStudent {nim fullName major email phone password} {

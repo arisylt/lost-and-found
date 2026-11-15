@@ -534,16 +534,17 @@ void loadAll() {
       if (userCount >= MAX_USERS) {
         break;
       }
-      string parts[9];
-      int partsCount = splitLine(line, '|', parts, 9);
-      if (partsCount == 5 || partsCount == 8 || partsCount == 9) {
+      string parts[10];
+      int partsCount = splitLine(line, '|', parts, 10);
+      if (partsCount == 5 || partsCount == 8 || partsCount == 9 ||
+          partsCount == 10) {
         userName[userCount] = parts[0];
         userPassword[userCount] = parts[1];
         userPhone[userCount] = parts[2];
         userFullName[userCount] = partsCount >= 8 ? parts[5] : "";
         userMajor[userCount] = partsCount >= 8 ? parts[6] : "";
         userEmail[userCount] = partsCount >= 8 ? parts[7] : "";
-        userRole[userCount] = partsCount == 9 ? parts[8] : ROLE_STUDENT;
+        userRole[userCount] = partsCount >= 9 ? parts[8] : ROLE_STUDENT;
         int failedVal = 0;
         for (int i = 0; i < (int)parts[3].length(); i++) {
           if (parts[3][i] >= '0' && parts[3][i] <= '9') {
@@ -552,6 +553,23 @@ void loadAll() {
         }
         userFailed[userCount] = failedVal;
         userLocked[userCount] = (parts[4] == "1");
+
+        long lockedUntil = 0;
+        if (partsCount == 10 && isAllDigits(parts[9])) {
+          bool lockedUntilValid = true;
+          for (int i = 0; i < (int)parts[9].length(); i++) {
+            int digit = parts[9][i] - '0';
+            if (lockedUntil > (LONG_MAX - digit) / 10) {
+              lockedUntilValid = false;
+              break;
+            }
+            lockedUntil = lockedUntil * 10 + digit;
+          }
+          if (!lockedUntilValid) {
+            lockedUntil = 0;
+          }
+        }
+        userLockedUntil[userCount] = lockedUntil;
 
         userCount++;
       }
@@ -778,7 +796,8 @@ void saveAll() {
                << sanitizeField(userFullName[i]) << "|"
                << sanitizeField(userMajor[i]) << "|"
                << sanitizeField(userEmail[i]) << "|"
-               << sanitizeField(userRole[i]) << "\n";
+               << sanitizeField(userRole[i]) << "|" << userLockedUntil[i]
+               << "\n";
     }
     userFile.close();
   }

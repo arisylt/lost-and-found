@@ -11,3 +11,4 @@ lostfound
 frontend
 *.out
 .env
+/locker_logs.txt

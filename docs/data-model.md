@@ -98,6 +98,16 @@ Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong: n
 
 Kategori, jurusan, dan lokasi disimpan sebagai nama dari daftar di bagian atas `src/main.cpp`, mengikuti tabel `categories`, `locations`, dan `majors` pada ERD. Panjang teks dibatasi mengikuti `varchar` di RAT agar tidak terpotong saat diimpor ke database.
 
+## Mirror MySQL
+
+Build dengan `-DUSE_MYSQL` menyalin seluruh array ke skema `database.sql` setiap
+`saveAll()` selesai (satu transaksi, `DELETE` lalu `INSERT`). File `.txt` tetap
+sumber data utama; `loadAll` tidak membaca database. Pemetaan yang perlu
+diketahui: status klaim `Disetujui`/`Selesai` → `APPROVED`, `Diblokir` → `LOCKED`,
+`Ditolak` → `REJECTED`, `Gagal` → `PENDING`; status laporan hilang `Dicari` →
+`OPEN`; kode `titip`/`ambil` → `DEPOSIT`/`PICKUP`; akun tanpa email mendapat
+`NIM@tanpa-email.invalid` karena kolomnya `UNIQUE NOT NULL`.
+
 ## Selisih yang masih terbuka
 
 - `access_codes` pada RAT adalah tabel tersendiri; di sini kode titip dan kode ambil hanya satu per barang, sehingga `used_at` menyimpan pemakaian kode terakhir.

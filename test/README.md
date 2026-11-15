@@ -19,6 +19,7 @@ Skrip Expect ini membagi `docs/flowchart.md` menurut alurnya. Setiap skrip memba
 | `13-claim-detail.exp` | Detail jawaban pengklaim tersimpan dan tampil di daftar klaim diblokir admin |
 | `14-hashing.exp` | Password dan kode loker tersimpan sebagai digest SHA-256, plaintext lama di-upgrade saat login |
 | `15-field-limits.exp` | NIM dan nama barang ditolak bila melebihi ukuran varchar pada RAT |
+| `16-mysql-mirror.exp` | Build `-DUSE_MYSQL` menyalin data ke tabel `database.sql`; otomatis SKIP bila server/klien tidak ada |
 
 ## Menjalankan
 
@@ -40,6 +41,15 @@ expect test/12-deposit-timestamps.exp
 expect test/13-claim-detail.exp
 expect test/14-hashing.exp
 expect test/15-field-limits.exp
+```
+
+Skrip MySQL butuh server dan klien. Tanpa keduanya skrip berhenti dengan status
+0 dan mencetak `SKIP`, jadi aman dijalankan di mesin tanpa database.
+
+```sh
+LF_DB_HOST=127.0.0.1 LF_DB_PORT=3306 LF_DB_USER=root \
+LF_DB_NAME=lostfound_test LF_DB_ADMIN_ARGS="-u root" \
+expect test/16-mysql-mirror.exp
 ```
 
 `demo.exp` di root repo menjalankan demo penuh untuk presentasi (membangun

@@ -1,10 +1,14 @@
 #include <cctype>
 #include <climits>
 #include <cstdint>
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <iostream>
 #include <string>
+#ifdef USE_MYSQL
+#include <mysql.h>
+#endif
 
 using namespace std;
 
@@ -1069,6 +1073,11 @@ void loadAll() {
   }
 }
 
+#ifdef USE_MYSQL
+// Mirrors the arrays into MySQL once the text files are written.
+bool dbSyncAll();
+#endif
+
 // Persists users, lockers, items, reports, and claims.
 void saveAll() {
   ofstream userFile("users.txt");
@@ -1147,6 +1156,11 @@ void saveAll() {
     }
     logFile.close();
   }
+
+#ifdef USE_MYSQL
+  // The .txt files stay the source of truth; MySQL is only a mirror.
+  dbSyncAll();
+#endif
 }
 
 // Appends one locker event, dropping the oldest entry when the log is full.
@@ -2438,6 +2452,381 @@ void showAdminMenu() {
   }
 }
 
+// ===================== MySQL mirror =====================
+// Aktif hanya jika dikompilasi dengan -DUSE_MYSQL. File .txt tetap menjadi
+// sumber data utama; setiap saveAll() juga menyalin seluruh data ke MySQL.
+#ifdef USE_MYSQL
+MYSQL *dbConn = NULL;
+
+// Reads a setting from the environment, using a default when it is unset.
+string dbEnv(const char *name, const char *fallback) {
+  const char *value = getenv(name);
+  if (value == NULL || value[0] == '\0') {
+    return string(fallback);
+  }
+
+  return string(value);
+}
+
+// Opens the MySQL connection; returns false when the server is unreachable.
+bool dbConnect() {
+  dbConn = mysql_init(NULL);
+  if (dbConn == NULL) {
+    return false;
+  }
+
+  string host = dbEnv("LF_DB_HOST", "127.0.0.1");
+  string user = dbEnv("LF_DB_USER", "lf");
+  string pass = dbEnv("LF_DB_PASS", "");
+  string name = dbEnv("LF_DB_NAME", "lostfound");
+  unsigned int port = (unsigned int)atoi(dbEnv("LF_DB_PORT", "3306").c_str());
+
+  if (mysql_real_connect(dbConn, host.c_str(), user.c_str(), pass.c_str(),
+                         name.c_str(), port, NULL, 0) == NULL) {
+    cout << "[DB] Tidak terhubung ke MySQL: " << mysql_error(dbConn) << "\n";
+    mysql_close(dbConn);
+    dbConn = NULL;
+    return false;
+  }
+
+  mysql_set_character_set(dbConn, "utf8mb4");
+  return true;
+}
+
+// Closes the MySQL connection when it is open.
+void dbClose() {
+  if (dbConn != NULL) {
+    mysql_close(dbConn);
+    dbConn = NULL;
+  }
+}
+
+// Runs one SQL statement and prints the server error when it fails.
+bool dbRun(string sql) {
+  if (mysql_query(dbConn, sql.c_str()) != 0) {
+    cout << "[DB] Query gagal: " << mysql_error(dbConn) << "\n";
+    return false;
+  }
+
+  return true;
+}
+
+// Escapes text and wraps it in quotes for use inside SQL.
+string dbQuote(string text) {
+  string out(text.length() * 2 + 1, '\0');
+  unsigned long size = mysql_real_escape_string(
+      dbConn, &out[0], text.c_str(), (unsigned long)text.length());
+  out.resize(size);
+
+  return "'" + out + "'";
+}
+
+// Converts a stored timestamp to SQL, using NULL when the column allows it.
+string dbTime(long stamp) {
+  if (stamp <= 0) {
+    return "NULL";
+  }
+
+  return "FROM_UNIXTIME(" + to_string(stamp) + ")";
+}
+
+// Like dbTime, but for NOT NULL columns: an unset stamp becomes the epoch.
+// FROM_UNIXTIME(0) itself returns NULL, so the epoch is written literally.
+string dbTimeRequired(long stamp) {
+  if (stamp <= 0) {
+    return "'1970-01-01 00:00:00'";
+  }
+
+  return dbTime(stamp);
+}
+
+// Maps a claim status to the enumeration declared in database.sql.
+string dbClaimStatus(string status) {
+  if (status == CLAIM_STATUS_APPROVED || status == CLAIM_STATUS_DONE) {
+    // The schema has no DONE value, and a finished claim was still approved.
+    return "APPROVED";
+  }
+  if (status == CLAIM_STATUS_REJECTED) {
+    return "REJECTED";
+  }
+  if (status == CLAIM_STATUS_BLOCKED) {
+    return "LOCKED";
+  }
+
+  return "PENDING";
+}
+
+// Maps the item status of a deposited item to the deposit state in the schema.
+string dbDepositStatus(int itemIndex) {
+  if (foundStatus[itemIndex] == STATUS_DEPOSIT_PENDING) {
+    return "RESERVED";
+  }
+  if (foundStatus[itemIndex] == STATUS_DEPOSIT_CANCELLED) {
+    return "CANCELLED";
+  }
+  if (foundStatus[itemIndex] == STATUS_PICKED_UP) {
+    return "PICKED_UP";
+  }
+  if (foundStatus[itemIndex] == STATUS_NEEDS_VERIFICATION) {
+    return "VERIFY";
+  }
+
+  return "DEPOSITED";
+}
+
+// Maps a lost report status to the enumeration declared in database.sql.
+string dbLostStatus(string status) {
+  if (status == "Ditemukan") {
+    return "MATCHED";
+  }
+  if (status == "Ditutup") {
+    return "CLOSED";
+  }
+
+  return "OPEN";
+}
+
+// Derives the access code state from its timestamps.
+string dbCodeStatus(long expiresAt, long usedAt) {
+  if (usedAt > 0) {
+    return "USED";
+  }
+  if (expiresAt > 0 && expiresAt < (long)time(0)) {
+    return "EXPIRED";
+  }
+
+  return "ACTIVE";
+}
+
+// Builds an address for accounts without email, because the column is
+// UNIQUE NOT NULL and several demo users start with an empty value.
+string dbEmail(string email, string nim) {
+  if (trim(email) == "") {
+    return nim + "@tanpa-email.invalid";
+  }
+
+  return email;
+}
+
+// Copies every array into MySQL inside one transaction (all or nothing).
+bool dbSyncAll() {
+  if (dbConn == NULL) {
+    return false;
+  }
+
+  bool itemOk[MAX_FOUND] = {};
+  bool depositOk[MAX_FOUND] = {};
+  bool claimOk[MAX_CLAIMS] = {};
+  int skipped = 0;
+
+  bool ok = dbRun("START TRANSACTION");
+
+  // Children first, so foreign keys never block the delete.
+  const string tables[10] = {"locker_event_logs", "access_codes", "claims",
+                             "deposits",          "lost_reports", "items",
+                             "lockers",           "locations",    "categories",
+                             "users"};
+  for (int i = 0; i < 10 && ok; i++) {
+    ok = dbRun("DELETE FROM " + tables[i]);
+  }
+
+  for (int i = 0; i < userCount && ok; i++) {
+    string locked = userLocked[i] ? dbTime(userLockedUntil[i]) : "NULL";
+    ok = dbRun("INSERT INTO users (nim, nama, jurusan, email, no_hp, "
+               "password_hash, role, failed_login, locked_until) VALUES (" +
+               dbQuote(userName[i]) + "," + dbQuote(userFullName[i]) + "," +
+               dbQuote(userMajor[i]) + "," +
+               dbQuote(dbEmail(userEmail[i], userName[i])) + "," +
+               dbQuote(userPhone[i]) + "," + dbQuote(userPassword[i]) + "," +
+               dbQuote(userRole[i]) + "," + to_string(userFailed[i]) + "," +
+               locked + ")");
+  }
+
+  for (int i = 0; i < CATEGORY_COUNT && ok; i++) {
+    ok = dbRun("INSERT INTO categories (id_kategori, nama_kategori) VALUES (" +
+               to_string(i + 1) + "," + dbQuote(CATEGORIES[i]) + ")");
+  }
+
+  for (int i = 0; i < LOCATION_COUNT && ok; i++) {
+    ok = dbRun("INSERT INTO locations (id_lokasi, nama_gedung, detail) VALUES (" +
+               to_string(i + 1) + "," + dbQuote(LOCATIONS[i]) + ",'')");
+  }
+
+  for (int i = 0; i < MAX_LOCKERS && ok; i++) {
+    ok = dbRun("INSERT INTO lockers (id_locker, nomor_loker, lokasi_unit, "
+               "status) VALUES (" +
+               to_string(i + 1) + "," + to_string(i + 1) + ",'Loker 3x3'," +
+               (lockerBroken[i] ? "'BROKEN'" : "'READY'") + ")");
+  }
+
+  for (int i = 0; i < foundCount && ok; i++) {
+    int reporter = foundReporter[i];
+    if (reporter < 0 || reporter >= userCount || !isValidDate(foundDate[i])) {
+      skipped++;
+      continue;
+    }
+
+    // Unknown (old, free-text) categories and locations get their own row.
+    ok = dbRun("INSERT IGNORE INTO categories (nama_kategori) VALUES (" +
+               dbQuote(foundCategory[i]) + ")");
+    if (ok) {
+      ok = dbRun("INSERT INTO locations (nama_gedung, detail) SELECT " +
+                 dbQuote(foundLocation[i]) +
+                 ",'' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
+                 "WHERE nama_gedung = " +
+                 dbQuote(foundLocation[i]) + ")");
+    }
+    if (ok) {
+      ok = dbRun(
+          "INSERT INTO items (id_item, nim_penemu, id_kategori, id_lokasi, "
+          "nama_barang, ciri_ciri, tanggal_temuan, data_verifikasi, status) "
+          "VALUES (" +
+          to_string(i + 1) + "," + dbQuote(userName[reporter]) +
+          ",(SELECT id_kategori FROM categories WHERE nama_kategori = " +
+          dbQuote(foundCategory[i]) +
+          " LIMIT 1),(SELECT id_lokasi FROM locations WHERE nama_gedung = " +
+          dbQuote(foundLocation[i]) + " LIMIT 1)," + dbQuote(foundName[i]) +
+          "," + dbQuote(foundDescription[i]) + "," + dbQuote(foundDate[i]) +
+          "," + dbQuote(foundSecret[i]) + "," + dbQuote(foundStatus[i]) + ")");
+    }
+    itemOk[i] = ok;
+  }
+
+  for (int i = 0; i < lostCount && ok; i++) {
+    int reporter = lostReporter[i];
+    if (reporter < 0 || reporter >= userCount || !isValidDate(lostDate[i])) {
+      skipped++;
+      continue;
+    }
+
+    ok = dbRun("INSERT IGNORE INTO categories (nama_kategori) VALUES (" +
+               dbQuote(lostCategory[i]) + ")");
+    if (ok) {
+      ok = dbRun("INSERT INTO locations (nama_gedung, detail) SELECT " +
+                 dbQuote(lostLocation[i]) +
+                 ",'' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
+                 "WHERE nama_gedung = " +
+                 dbQuote(lostLocation[i]) + ")");
+    }
+    if (ok) {
+      ok = dbRun(
+          "INSERT INTO lost_reports (id_laporan, nim_pelapor, id_kategori, "
+          "id_lokasi, nama_barang, ciri_ciri, tanggal_hilang, status) VALUES (" +
+          to_string(i + 1) + "," + dbQuote(userName[reporter]) +
+          ",(SELECT id_kategori FROM categories WHERE nama_kategori = " +
+          dbQuote(lostCategory[i]) +
+          " LIMIT 1),(SELECT id_lokasi FROM locations WHERE nama_gedung = " +
+          dbQuote(lostLocation[i]) + " LIMIT 1)," + dbQuote(lostName[i]) + "," +
+          dbQuote(lostDescription[i]) + "," + dbQuote(lostDate[i]) + "," +
+          dbQuote(dbLostStatus(lostStatus[i])) + ")");
+    }
+  }
+
+  for (int i = 0; i < claimCount && ok; i++) {
+    int item = claimItem[i];
+    int user = claimUser[i];
+    if (item < 0 || item >= foundCount || !itemOk[item] || user < 0 ||
+        user >= userCount) {
+      skipped++;
+      continue;
+    }
+
+    ok = dbRun("INSERT INTO claims (id_claim, id_item, nim_pengklaim, "
+               "detail_claim, failed_count, status, claimed_at, verified_at) "
+               "VALUES (" +
+               to_string(i + 1) + "," + to_string(item + 1) + "," +
+               dbQuote(userName[user]) + "," + dbQuote(claimDetail[i]) + "," +
+               to_string(claimFailed[i]) + "," +
+               dbQuote(dbClaimStatus(claimStatus[i])) + "," +
+               dbTimeRequired(claimClaimedAt[i]) + "," +
+               dbTime(claimVerifiedAt[i]) + ")");
+    claimOk[i] = ok;
+  }
+
+  // A deposit row exists for every item that currently sits in a locker.
+  for (int i = 0; i < foundCount && ok; i++) {
+    if (!itemOk[i] || foundLocker[i] < 0 || foundLocker[i] >= MAX_LOCKERS) {
+      continue;
+    }
+
+    ok = dbRun("INSERT INTO deposits (id_deposit, id_item, id_locker, "
+               "reserved_at, reserve_expires_at, deposited_at, picked_up_at, "
+               "status) VALUES (" +
+               to_string(i + 1) + "," + to_string(i + 1) + "," +
+               to_string(foundLocker[i] + 1) + "," +
+               dbTimeRequired(foundReservedAt[i]) + "," +
+               dbTimeRequired(foundReservationExpiry[i]) + "," +
+               dbTime(foundDepositedAt[i]) + "," + dbTime(foundPickedUpAt[i]) +
+               "," + dbQuote(dbDepositStatus(i)) + ")");
+    depositOk[i] = ok;
+  }
+
+  // Only active codes are kept: the arrays clear a code once it is used up.
+  for (int i = 0; i < foundCount && ok; i++) {
+    if (depositOk[i] && foundDepositCode[i] != "") {
+      ok = dbRun("INSERT INTO access_codes (id_deposit, id_claim, tipe, "
+                 "code_hash, expires_at, used_at, failed_count, status) "
+                 "VALUES (" +
+                 to_string(i + 1) + ",NULL,'DEPOSIT'," +
+                 dbQuote(foundDepositCode[i]) + "," +
+                 dbTimeRequired(foundReservationExpiry[i]) + "," +
+                 dbTime(foundDepositCodeUsedAt[i]) + "," +
+                 to_string(foundDepositFailed[i]) + "," +
+                 dbQuote(dbCodeStatus(foundReservationExpiry[i],
+                                      foundDepositCodeUsedAt[i])) +
+                 ")");
+    }
+
+    if (ok && itemOk[i] && foundPickupCode[i] != "" && foundClaimant[i] >= 0) {
+      int claim = findClaimRecord(i, foundClaimant[i]);
+      if (claim != -1 && claimOk[claim]) {
+        ok = dbRun("INSERT INTO access_codes (id_deposit, id_claim, tipe, "
+                   "code_hash, expires_at, used_at, failed_count, status) "
+                   "VALUES (NULL," +
+                   to_string(claim + 1) + ",'PICKUP'," +
+                   dbQuote(foundPickupCode[i]) + "," +
+                   dbTimeRequired(foundPickupExpiry[i]) + "," +
+                   dbTime(foundPickupCodeUsedAt[i]) + "," +
+                   to_string(foundPickupFailed[i]) + "," +
+                   dbQuote(dbCodeStatus(foundPickupExpiry[i],
+                                        foundPickupCodeUsedAt[i])) +
+                   ")");
+      }
+    }
+  }
+
+  for (int i = 0; i < logCount && ok; i++) {
+    if (logLocker[i] < 0 || logLocker[i] >= MAX_LOCKERS) {
+      skipped++;
+      continue;
+    }
+
+    int item = logItem[i];
+    string deposit = "NULL";
+    if (item >= 0 && item < foundCount && depositOk[item]) {
+      deposit = to_string(item + 1);
+    }
+
+    ok = dbRun("INSERT INTO locker_event_logs (id_locker, id_deposit, "
+               "tipe_event, waktu, keterangan) VALUES (" +
+               to_string(logLocker[i] + 1) + "," + deposit + "," +
+               dbQuote(logType[i]) + "," + dbTimeRequired(logTime[i]) + "," +
+               dbQuote(logNote[i]) + ")");
+  }
+
+  if (ok) {
+    ok = dbRun("COMMIT");
+  } else {
+    dbRun("ROLLBACK");
+  }
+  if (skipped > 0) {
+    cout << "[DB] " << skipped << " baris lama dilewati (data tidak valid).\n";
+  }
+
+  return ok;
+}
+#endif
+
 // Starts the application and routes guest, student, and admin menus.
 int main() {
   loadAll();
@@ -2445,6 +2834,9 @@ int main() {
     loadDemoData();
   }
   ensureDemoAdmin();
+#ifdef USE_MYSQL
+  dbConnect();
+#endif
 
   bool isRunning = true;
   while (isRunning) {
@@ -2484,5 +2876,8 @@ int main() {
     }
   }
 
+#ifdef USE_MYSQL
+  dbClose();
+#endif
   return 0;
 }

@@ -29,6 +29,34 @@ Semua data disimpan sebagai file teks di direktori tempat program dijalankan, de
 
 Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong; nomornya dipertahankan agar file lama tidak bergeser. Lokasi dan kategori disimpan sebagai nama dari daftar pilihan di bagian atas `main.cpp`. Password dan kode akses disimpan sebagai digest SHA-256 (64 karakter hex); nilai lama yang masih plaintext tetap bisa dipakai lalu di-upgrade saat berhasil login. Panjang teks mengikuti ukuran `varchar` pada ERD/RAT.
 
+## Mirror MySQL (opsional)
+
+File `.txt` tetap menjadi sumber data utama. Jika program dikompilasi dengan
+`-DUSE_MYSQL`, setiap `saveAll()` juga menyalin seluruh data ke MySQL dalam satu
+transaksi, mengikuti skema `database.sql` (tabel dari ERD/RAT). Tanpa flag itu
+tidak ada kode MySQL yang ikut dikompilasi, jadi build biasa tidak berubah.
+
+```bash
+mariadb -u root < database.sql
+
+g++ -std=c++11 -Wall -Wextra -DUSE_MYSQL $(mysql_config --cflags) \
+    src/main.cpp -o lostfound-db $(mysql_config --libs)
+
+export LF_DB_HOST=127.0.0.1 LF_DB_PORT=3306
+export LF_DB_USER=lf LF_DB_PASS=rahasia LF_DB_NAME=lostfound
+./lostfound-db
+```
+
+Bila server tidak dapat dihubungi, program tetap berjalan dengan file `.txt` dan
+hanya menampilkan satu pesan `[DB]`. Nilai yang tidak bisa dipetakan ke skema
+ditangani otomatis: status klaim/deposit/kode diterjemahkan ke enumerasi
+`database.sql`, akun tanpa email mendapat alamat `NIM@tanpa-email.invalid`, dan
+timestamp kosong ditulis sebagai `1970-01-01 00:00:00` (epochnya 0).
+
+Setiap sinkronisasi menghapus lalu menulis ulang semua tabel, jadi jangan
+menganggap isi MySQL bisa diubah dari sisi database: perubahan akan tertimpa.
+Untuk data besar ini perlu diganti `INSERT ... ON DUPLICATE KEY UPDATE`.
+
 ## Uji otomatis
 
 Skrip Expect di `test/` membangun `build/lostfound-test` dan memakai direktori sementara sendiri, sehingga data di root repo tidak tersentuh.

@@ -451,7 +451,11 @@ int toIndex(int displayNo) { return displayNo - 1; }
 string readLine(string prompt) {
   cout << prompt;
   string result;
-  getline(cin, result);
+  if (!getline(cin, result)) {
+    // Input ended (Ctrl-D or a closed pipe), so stop instead of looping.
+    cout << "\n";
+    exit(0);
+  }
   return result;
 }
 

@@ -81,7 +81,7 @@ int userCount = 0;
 int foundReporter[MAX_FOUND];
 string foundName[MAX_FOUND], foundCategory[MAX_FOUND],
     foundLocation[MAX_FOUND], foundDate[MAX_FOUND], foundDescription[MAX_FOUND],
-    foundSecret[MAX_FOUND], foundStatus[MAX_FOUND], foundPhoto[MAX_FOUND],
+    foundSecret[MAX_FOUND], foundStatus[MAX_FOUND],
     foundDepositCode[MAX_FOUND], foundPickupCode[MAX_FOUND];
 int foundLocker[MAX_FOUND], foundClaimant[MAX_FOUND],
     foundDepositFailed[MAX_FOUND], foundPickupFailed[MAX_FOUND];
@@ -140,7 +140,6 @@ userName[0] = "Azhri";
   foundDescription[0] = "Payung lipat warna hitam merk standar";
   foundSecret[0] = "Ada stiker kecil bergambar bintang di pegangannya";
   foundStatus[0] = STATUS_AVAILABLE;
-  foundPhoto[0] = "demo/payung-hitam.jpg";
   foundLocker[0] = 0;
   foundDepositCode[0] = "";
   foundReservationExpiry[0] = 0;
@@ -157,9 +156,8 @@ userName[0] = "Azhri";
   foundDate[1] = demoDate;
   foundDescription[1] =
       "Dompet berisi kartu identitas dan beberapa kartu penting";
-  foundSecret[1] = "Ada foto pelajar di dalam selipan kartu";
+  foundSecret[1] = "Ada kartu pelajar di dalam selipan dompet";
   foundStatus[1] = STATUS_AVAILABLE;
-  foundPhoto[1] = "demo/dompet-coklat.jpg";
   foundLocker[1] = 1;
   foundDepositCode[1] = "";
   foundReservationExpiry[1] = 0;
@@ -595,7 +593,7 @@ void loadAll() {
         foundDescription[foundCount] = parts[5];
         foundSecret[foundCount] = parts[6];
         foundStatus[foundCount] = parts[7];
-        foundPhoto[foundCount] = partsCount >= 12 ? parts[8] : "";
+        // Column index 8 is a retired placeholder kept for old files.
         foundLocker[foundCount] = -1;
         foundDepositCode[foundCount] = partsCount >= 12 ? parts[10] : "";
         foundReservationExpiry[foundCount] = 0;
@@ -793,7 +791,7 @@ void saveAll() {
                 << sanitizeField(foundLocation[i]) << "|" << foundDate[i] << "|"
                 << sanitizeField(foundDescription[i]) << "|"
                 << sanitizeField(foundSecret[i]) << "|" << foundStatus[i] << "|"
-                << sanitizeField(foundPhoto[i]) << "|" << foundLocker[i] << "|"
+                << "|" << foundLocker[i] << "|"
                 << sanitizeField(foundDepositCode[i]) << "|"
                 << foundReservationExpiry[i] << "|" << foundClaimant[i] << "|"
                 << sanitizeField(foundPickupCode[i]) << "|"
@@ -972,7 +970,6 @@ int addFoundItem(int reporterIndex, string name, string category,
   foundDescription[foundCount] = sanitizeField(description);
   foundSecret[foundCount] = sanitizeField(secretDetail);
   foundStatus[foundCount] = STATUS_AVAILABLE;
-  foundPhoto[foundCount] = "";
   foundLocker[foundCount] = -1;
   foundDepositCode[foundCount] = "";
   foundReservationExpiry[foundCount] = 0;
@@ -1105,12 +1102,7 @@ void clearPickupDetails(int itemIndex) {
 // Creates a pending found-item deposit reservation.
 int reserveFoundItem(int reporterIndex, string name, string category,
                      string location, string dateFound,
-                     string description, string secretDetail,
-                     string photo) {
-  if (trim(photo) == "") {
-    return ITEM_EMPTY_FIELD;
-  }
-
+                     string description, string secretDetail) {
   int result = addFoundItem(reporterIndex, name, category, location, dateFound,
                             description, secretDetail);
   if (result != ITEM_OK) {
@@ -1124,7 +1116,6 @@ int reserveFoundItem(int reporterIndex, string name, string category,
   }
 
   int itemIndex = foundCount - 1;
-  foundPhoto[itemIndex] = sanitizeField(photo);
   foundLocker[itemIndex] = locker;
   foundDepositCode[itemIndex] = makeDepositCode();
   foundReservationExpiry[itemIndex] = (long)time(0) + 10 * 60;
@@ -1452,16 +1443,15 @@ void showReportFoundScreen(int userIndex) {
   string category = selectCategory(false);
   string location = readLine("Lokasi ditemukan: ");
   string date = readLine("Tanggal (YYYY-MM-DD): ");
-  string photo = trim(readLine("Path foto wajib: "));
   string description = readLine("Deskripsi (boleh kosong): ");
   string secretDetail =
       readLine("Detail rahasia (untuk verifikasi klaim): ");
 
   int result = reserveFoundItem(userIndex, name, category, location, date,
-                                description, secretDetail, photo);
+                                description, secretDetail);
 
   if (result == ITEM_EMPTY_FIELD) {
-    cout << "Gagal: Semua kolom wajib dan path foto harus diisi.\n";
+    cout << "Gagal: Semua kolom wajib harus diisi.\n";
     pauseScreen();
     return;
   }

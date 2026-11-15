@@ -80,7 +80,6 @@ proc depositItem {name category location description secret sensor} {
   sendLine $category
   sendLine $location
   sendLine [clock format [clock seconds] -format "%Y-%m-%d"]
-  sendLine "test-$name.jpg"
   sendLine $description
   sendLine $secret
 

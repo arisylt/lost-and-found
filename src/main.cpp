@@ -26,6 +26,10 @@ const int MAJOR_COUNT = 6;
 const string MAJORS[MAJOR_COUNT] = {
     "Informatika", "Sistem Informasi", "Teknik Komputer",
     "Teknik Elektro", "Manajemen", "Akuntansi"};
+const int LOCATION_COUNT = 8;
+const string LOCATIONS[LOCATION_COUNT] = {
+    "Kantin Utama",   "Parkiran Fakultas", "Perpustakaan", "Gedung A",
+    "Gedung B",       "Lobi Utama",        "Masjid/Musala", "Lapangan"};
 
 const string STATUS_AVAILABLE = "Tersedia";
 const string STATUS_RETURNED = "Dikembalikan";
@@ -569,6 +573,27 @@ string selectCategory(bool allowAll) {
     return "";
   }
   return CATEGORIES[choice - 1];
+}
+
+// Lets the user select one canonical campus location.
+string selectLocation(bool allowAll) {
+  cout << "\nLOKASI\n" << UI_DIVIDER << "\n";
+  if (allowAll) {
+    cout << "  0. Semua lokasi\n";
+  }
+  for (int i = 0; i < LOCATION_COUNT; i++) {
+    cout << "  " << i + 1 << ". " << LOCATIONS[i] << "\n";
+  }
+  cout << UI_DIVIDER << "\n";
+
+  int choice = readInt("Pilih lokasi [" +
+                           to_string(allowAll ? 0 : 1) + "-" +
+                           to_string(LOCATION_COUNT) + "]: ",
+                       allowAll ? 0 : 1, LOCATION_COUNT);
+  if (choice == 0) {
+    return "";
+  }
+  return LOCATIONS[choice - 1];
 }
 
 // Lets the user select one canonical study major.
@@ -1625,7 +1650,7 @@ void showReportFoundScreen(int userIndex) {
 
   string name = readLine("Nama barang: ");
   string category = selectCategory(false);
-  string location = readLine("Lokasi ditemukan: ");
+  string location = selectLocation(false);
   string date = readLine("Tanggal (YYYY-MM-DD): ");
   string description = readLine("Deskripsi (boleh kosong): ");
   string secretDetail =
@@ -1754,7 +1779,7 @@ void showReportLostScreen(int userIndex, string prefillName) {
   }
 
   string category = selectCategory(false);
-  string location = readLine("Lokasi hilang: ");
+  string location = selectLocation(false);
   string date = readLine("Tanggal hilang (YYYY-MM-DD): ");
   string description = readLine("Deskripsi (boleh kosong): ");
 
@@ -1869,7 +1894,7 @@ void showClaimFlowScreen(int userIndex) {
 
   string keyword = readLine("Nama atau deskripsi barang: ");
   string category = selectCategory(true);
-  string location = readLine("Lokasi ditemukan: ");
+  string location = selectLocation(true);
 
   int resultCount = searchAvailableItems(keyword, category, location);
 

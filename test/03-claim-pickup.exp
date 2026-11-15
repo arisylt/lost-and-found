@@ -14,7 +14,7 @@ set secret "detail klaim $suffix"
 # A finder deposits a new, searchable item.
 registerStudent $reporter "Test Penemu $suffix" 1 "finder-$suffix@example.test" "083$suffix" $password
 loginStudent $reporter $password
-depositItem $item 3 "Parkiran Test" "Dompet untuk test klaim" $secret 1
+depositItem $item 3 2 "Dompet untuk test klaim" $secret 1
 logoutStudent
 
 # A different student searches, claims, and picks it up.
@@ -23,7 +23,7 @@ loginStudent $claimant $password
 sendLine 2
 sendLine $item
 sendLine 0
-sendLine ""
+sendLine 0
 expect {
   -re [format {\[([0-9]+)\] %s} $item] { set itemNumber $expect_out(1,string) }
   timeout {

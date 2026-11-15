@@ -12,7 +12,7 @@ registerStudent $nim "Test Penitip $suffix" 1 "deposit-$suffix@example.test" "08
 loginStudent $nim $password
 
 # Covers reservation, one wrong locker PIN, a valid PIN, and confirmed drop-off.
-depositItem $item 5 "Laboratorium Test" "Kunci untuk test penitipan" "gantungan test $suffix" 1
+depositItem $item 5 4 "Kunci untuk test penitipan" "gantungan test $suffix" 1
 
 logoutStudent
 exitApp

@@ -15,12 +15,12 @@ loginStudent $nim $password
 sendLine 2
 sendLine $missingItem
 sendLine 0
-sendLine ""
+sendLine 0
 expectText {Barang tidak ditemukan}
 sendLine 1
 sendLine ""
 sendLine 5
-sendLine "Gedung Test"
+sendLine 4
 sendLine [clock format [clock seconds] -format "%Y-%m-%d"]
 sendLine "Laporan kehilangan dari test"
 expectText {Laporan barang hilang berhasil disimpan!}

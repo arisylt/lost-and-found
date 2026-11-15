@@ -16,7 +16,7 @@ startAppIn $workspace
 
 registerStudent $finder "Test Penemu Status $suffix" 1 "status-finder-$suffix@example.test" "093$suffix" $password
 loginStudent $finder $password
-depositItem $item 2 "Kantin Test" "Barang untuk test status klaim" $secret 1
+depositItem $item 2 1 "Barang untuk test status klaim" $secret 1
 logoutStudent
 
 registerStudent $claimant "Test Pengklaim Status $suffix" 3 "status-claimant-$suffix@example.test" "094$suffix" $password
@@ -25,7 +25,7 @@ for {set attempt 1} {$attempt <= 3} {incr attempt} {
   sendLine 2
   sendLine $item
   sendLine 0
-  sendLine ""
+  sendLine 0
   expect {
     -re [format {\[([0-9]+)\] %s} $item] { set itemNumber $expect_out(1,string) }
     timeout {

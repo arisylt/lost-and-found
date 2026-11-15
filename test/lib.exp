@@ -83,11 +83,11 @@ proc exitApp {} {
   expect eof
 }
 
-proc depositItem {name category location description secret sensor} {
+proc depositItem {name category locationNo description secret sensor} {
   sendLine 1
   sendLine $name
   sendLine $category
-  sendLine $location
+  sendLine $locationNo
   sendLine [clock format [clock seconds] -format "%Y-%m-%d"]
   sendLine $description
   sendLine $secret

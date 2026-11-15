@@ -16,13 +16,13 @@ set claimSecret "rahasia admin $suffix"
 # Create one locker anomaly for the admin to resolve.
 registerStudent $anomalyReporter "Test Anomali $suffix" 1 "anomaly-$suffix@example.test" "087$suffix" $password
 loginStudent $anomalyReporter $password
-depositItem $anomalyItem 5 "Loker Test" "Item untuk anomali" "detail anomali $suffix" 3
+depositItem $anomalyItem 5 4 "Item untuk anomali" "detail anomali $suffix" 3
 logoutStudent
 
 # Create a second item and block a claimant after three failed verifications.
 registerStudent $claimReporter "Test Penemu Admin $suffix" 2 "admin-finder-$suffix@example.test" "088$suffix" $password
 loginStudent $claimReporter $password
-depositItem $claimItem 3 "Parkiran Test" "Item untuk klaim admin" $claimSecret 1
+depositItem $claimItem 3 2 "Item untuk klaim admin" $claimSecret 1
 logoutStudent
 
 registerStudent $claimant "Test Klaim Admin $suffix" 3 "admin-claimant-$suffix@example.test" "089$suffix" $password
@@ -31,7 +31,7 @@ for {set attempt 1} {$attempt <= 3} {incr attempt} {
   sendLine 2
   sendLine $claimItem
   sendLine 0
-  sendLine ""
+  sendLine 0
   expect {
     -re [format {\[([0-9]+)\] %s} $claimItem] { set itemNumber $expect_out(1,string) }
     timeout {

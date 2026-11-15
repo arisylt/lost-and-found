@@ -1,0 +1,40 @@
+#!/usr/bin/expect -f
+# Two accounts may not share an email, and a rejected registration must not
+# leave a half-made account behind.
+source [file join [file dirname [info script]] lib.exp]
+
+prepareTest
+startApp
+
+set suffix [pid]
+set password "test123"
+set firstNim "85$suffix"
+set secondNim "86$suffix"
+set thirdNim "87$suffix"
+set email "dup-$suffix@example.test"
+
+registerStudent $firstNim "Test Email Pertama $suffix" 1 $email "095$suffix" $password
+
+# The same email in another letter case belongs to another student: rejected.
+sendLine 1
+sendLine $secondNim
+sendLine "Test Email Ganda $suffix"
+sendLine 2
+sendLine [string toupper $email]
+sendLine "096$suffix"
+sendLine $password
+expectText {Gagal: Email sudah digunakan\.}
+sendLine ""
+
+# The rejected NIM must not be usable, so no partial account was stored.
+sendLine 2
+sendLine $secondNim
+sendLine $password
+expectText {Akun tidak ditemukan\.}
+sendLine ""
+
+# A different email registers normally.
+registerStudent $thirdNim "Test Email Beda $suffix" 3 "lain-$suffix@example.test" "097$suffix" $password
+loginStudent $thirdNim $password
+logoutStudent
+exitApp

@@ -65,6 +65,7 @@ const int REG_DUPLICATE = 3;
 const int REG_PASSWORD_SHORT = 4;
 const int REG_PHONE_INVALID = 5;
 const int REG_FULL = 6;
+const int REG_EMAIL_DUPLICATE = 7;
 
 const int LOGIN_NOT_FOUND = -1;
 const int LOGIN_WRONG_PASSWORD = -2;
@@ -1014,6 +1015,22 @@ int findUserByUsername(string username) {
   return -1;
 }
 
+// Finds a user index by email without case sensitivity.
+int findUserByEmail(string email) {
+  email = toLower(trim(email));
+  if (email == "") {
+    return -1;
+  }
+
+  for (int i = 0; i < userCount; i++) {
+    if (toLower(userEmail[i]) == email) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 // Validates and stores a base user account.
 int registerUser(string username, string password,
                  string phone) {
@@ -1064,6 +1081,11 @@ int registerStudent(string nim, string fullName, string major,
   if (nim == "" || fullName == "" || major == "" || email == "" ||
       phone == "" || password == "") {
     return REG_EMPTY_FIELD;
+  }
+
+  // Checked before registerUser so a rejected email leaves no half-made account.
+  if (findUserByEmail(email) != -1) {
+    return REG_EMAIL_DUPLICATE;
   }
 
   int result = registerUser(nim, password, phone);
@@ -1599,6 +1621,8 @@ void showRegisterScreen() {
     cout << "Gagal: NIM tidak boleh mengandung spasi.\n";
   } else if (result == REG_DUPLICATE) {
     cout << "Gagal: NIM sudah digunakan.\n";
+  } else if (result == REG_EMAIL_DUPLICATE) {
+    cout << "Gagal: Email sudah digunakan.\n";
   } else if (result == REG_PASSWORD_SHORT) {
     cout << "Gagal: Password minimal " << MIN_PASSWORD_LENGTH
               << " karakter.\n";

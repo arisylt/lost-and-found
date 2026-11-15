@@ -68,6 +68,7 @@ const int REG_PASSWORD_SHORT = 4;
 const int REG_PHONE_INVALID = 5;
 const int REG_FULL = 6;
 const int REG_EMAIL_DUPLICATE = 7;
+const int REG_FIELD_TOO_LONG = 8;
 
 const int LOGIN_NOT_FOUND = -1;
 const int LOGIN_WRONG_PASSWORD = -2;
@@ -79,6 +80,7 @@ const int ITEM_INVALID_DATE = 2;
 const int ITEM_FUTURE_DATE = 3;
 const int ITEM_FULL = 4;
 const int ITEM_LOCKER_FULL = 5;
+const int ITEM_FIELD_TOO_LONG = 6;
 
 const int CLAIM_APPROVED = 0;
 const int CLAIM_WRONG_DETAIL = 1;
@@ -233,6 +235,9 @@ void ensureDemoAdmin() {
   userRole[userCount] = ROLE_ADMIN;
   userCount++;
 }
+
+// Checks whether text fits the RAT column size, e.g. varchar(100).
+bool fitsLength(string text, int limit) { return (int)text.length() <= limit; }
 
 // Removes leading and trailing spaces from text.
 string trim(string s) {
@@ -1161,7 +1166,8 @@ void addLockerLog(int locker, int item, string type, string note) {
   logItem[logCount] = item;
   logType[logCount] = type;
   logTime[logCount] = (long)time(0);
-  logNote[logCount] = sanitizeField(note);
+  // keterangan is varchar(255) in the RAT; a log must never fail to be written.
+  logNote[logCount] = sanitizeField(note).substr(0, 255);
 
   logCount++;
 }
@@ -1247,6 +1253,12 @@ int registerStudent(string nim, string fullName, string major,
     return REG_EMPTY_FIELD;
   }
 
+  if (!fitsLength(nim, 15) || !fitsLength(fullName, 100) ||
+      !fitsLength(major, 50) || !fitsLength(email, 100) ||
+      !fitsLength(phone, 20)) {
+    return REG_FIELD_TOO_LONG;
+  }
+
   // Checked before registerUser so a rejected email leaves no half-made account.
   if (findUserByEmail(email) != -1) {
     return REG_EMAIL_DUPLICATE;
@@ -1317,6 +1329,10 @@ int addFoundItem(int reporterIndex, string name, string category,
 
   if (isFutureDate(dateFound)) {
     return ITEM_FUTURE_DATE;
+  }
+
+  if (!fitsLength(name, 100)) {
+    return ITEM_FIELD_TOO_LONG;
   }
 
   if (foundCount >= MAX_FOUND) {
@@ -1520,6 +1536,10 @@ int addLostReport(int reporterIndex, string name, string category,
 
   if (isFutureDate(dateLost)) {
     return ITEM_FUTURE_DATE;
+  }
+
+  if (!fitsLength(name, 100)) {
+    return ITEM_FIELD_TOO_LONG;
   }
 
   if (lostCount >= MAX_LOST) {
@@ -1810,6 +1830,9 @@ void showRegisterScreen() {
               << " karakter.\n";
   } else if (result == REG_PHONE_INVALID) {
     cout << "Gagal: Nomor telepon hanya boleh berisi angka.\n";
+  } else if (result == REG_FIELD_TOO_LONG) {
+    cout << "Gagal: NIM maksimal 15, nama dan email 100, jurusan 50, dan "
+            "telepon 20 karakter.\n";
   } else if (result == REG_FULL) {
     cout << "Gagal: Kapasitas pengguna sudah penuh.\n";
   } else {
@@ -1877,6 +1900,11 @@ void showReportFoundScreen(int userIndex) {
   }
   if (result == ITEM_FUTURE_DATE) {
     cout << "Gagal: Tanggal tidak boleh berada di masa depan.\n";
+    pauseScreen();
+    return;
+  }
+  if (result == ITEM_FIELD_TOO_LONG) {
+    cout << "Gagal: Nama barang maksimal 100 karakter.\n";
     pauseScreen();
     return;
   }
@@ -2003,6 +2031,8 @@ void showReportLostScreen(int userIndex, string prefillName) {
     cout << "Gagal: Format tanggal tidak valid (gunakan YYYY-MM-DD).\n";
   } else if (result == ITEM_FUTURE_DATE) {
     cout << "Gagal: Tanggal tidak boleh berada di masa depan.\n";
+  } else if (result == ITEM_FIELD_TOO_LONG) {
+    cout << "Gagal: Nama barang maksimal 100 karakter.\n";
   } else if (result == ITEM_FULL) {
     cout << "Gagal: Penyimpanan laporan hilang sudah penuh.\n";
   } else {

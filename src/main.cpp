@@ -45,6 +45,7 @@ const string CLAIM_STATUS_APPROVED = "Disetujui";
 const string CLAIM_STATUS_DONE = "Selesai";
 const string CLAIM_STATUS_BLOCKED = "Diblokir";
 const string CLAIM_STATUS_REJECTED = "Ditolak";
+const string LOST_STATUS_SEARCHING = "Dicari";
 const string ROLE_STUDENT = "Mahasiswa";
 const string ROLE_ADMIN = "Admin";
 
@@ -117,7 +118,7 @@ int foundCount = 0;
 
 int lostReporter[MAX_LOST];
 string lostName[MAX_LOST], lostCategory[MAX_LOST], lostLocation[MAX_LOST],
-    lostDate[MAX_LOST], lostDescription[MAX_LOST];
+    lostDate[MAX_LOST], lostDescription[MAX_LOST], lostStatus[MAX_LOST];
 int lostCount = 0;
 
 int claimItem[MAX_CLAIMS], claimUser[MAX_CLAIMS], claimFailed[MAX_CLAIMS];
@@ -843,9 +844,9 @@ void loadAll() {
       if (lostCount >= MAX_LOST) {
         break;
       }
-      string parts[6];
-      int partsCount = splitLine(line, '|', parts, 6);
-      if (partsCount == 6) {
+      string parts[7];
+      int partsCount = splitLine(line, '|', parts, 7);
+      if (partsCount == 6 || partsCount == 7) {
         int repIndex = 0;
         for (int i = 0; i < (int)parts[0].length(); i++) {
           if (parts[0][i] >= '0' && parts[0][i] <= '9') {
@@ -859,6 +860,8 @@ void loadAll() {
         lostLocation[lostCount] = parts[3];
         lostDate[lostCount] = parts[4];
         lostDescription[lostCount] = parts[5];
+        lostStatus[lostCount] =
+            partsCount == 7 ? parts[6] : LOST_STATUS_SEARCHING;
 
         lostCount++;
       }
@@ -985,7 +988,8 @@ void saveAll() {
       lostFile << lostReporter[i] << "|" << sanitizeField(lostName[i]) << "|"
                << sanitizeField(lostCategory[i]) << "|"
                << sanitizeField(lostLocation[i]) << "|" << lostDate[i] << "|"
-               << sanitizeField(lostDescription[i]) << "\n";
+               << sanitizeField(lostDescription[i]) << "|"
+               << sanitizeField(lostStatus[i]) << "\n";
     }
     lostFile.close();
   }
@@ -1397,6 +1401,7 @@ int addLostReport(int reporterIndex, string name, string category,
   lostLocation[lostCount] = sanitizeField(location);
   lostDate[lostCount] = dateLost;
   lostDescription[lostCount] = sanitizeField(description);
+  lostStatus[lostCount] = LOST_STATUS_SEARCHING;
 
   lostCount++;
   return ITEM_OK;
@@ -1930,6 +1935,7 @@ void showMyReportsScreen(int userIndex) {
     cout << "\n" << lostName[i] << "\n";
     cout << "Lokasi   : " << lostLocation[i] << "\n";
     cout << "Tanggal  : " << lostDate[i] << "\n";
+    cout << "Status   : " << lostStatus[i] << "\n";
     cout << "Deskripsi: " << lostDescription[i] << "\n";
   }
   if (lostShown == 0) {

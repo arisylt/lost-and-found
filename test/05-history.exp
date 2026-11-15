@@ -45,6 +45,7 @@ expectText {LAPORAN HILANG SAYA}
 expectText $missingItem
 expectText {Lokasi   : Gedung A}
 expectText "Tanggal  : $today"
+expectText {Status   : Dicari}
 expectText {Deskripsi: Laporan hilang untuk riwayat}
 sendLine ""
 

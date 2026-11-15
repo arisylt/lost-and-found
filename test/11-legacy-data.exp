@@ -97,5 +97,6 @@ exitApp
 expectFileMatch [file join $workspace users.txt] {^admin\|admin123\|0000000000\|0\|0\|Administrator\|\|\|Admin\|0$}
 expectFileMatch [file join $workspace claims.txt] {^1\|0\|0\|Selesai\|[0-9]+\|[0-9]+\|}
 expectFileMatch [file join $workspace found_items.txt] {^1\|Dompet Kulit Coklat\|Dompet\|Parkiran Fakultas\|2026-10-26\|Dompet berisi kartu identitas\|Ada kartu pelajar di selipan\|Sudah Diambil\|\|}
+expectFileMatch [file join $workspace lost_reports.txt] {^0\|Kunci Motor\|Kunci\|Kantin Utama\|2026-10-20\|Hilang setelah kuliah\|Dicari$}
 expectFileMatch [file join $workspace locker_logs.txt] {PINTU_AMBIL}
 expectFileMatch [file join $workspace locker_logs.txt] {AMBIL_OK}

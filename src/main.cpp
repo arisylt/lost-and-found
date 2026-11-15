@@ -24,6 +24,12 @@ const int LOGIN_LOCK_DURATION_SECONDS = 15 * 60;
 const int MAX_CLAIM_ATTEMPTS = 3;
 const int MIN_PASSWORD_LENGTH = 6;
 const int BCRYPT_COST = 10;
+const int CODE_MIN = 100000;
+const int CODE_MAX = 999999;
+const int CODE_SPAN = CODE_MAX - CODE_MIN + 1;
+const int RESERVATION_SECONDS = 10 * 60;
+const int PICKUP_VALID_SECONDS = 24 * 60 * 60;
+const int UNCLAIMED_DAYS = 30;
 const string UI_BORDER(54, '=');
 const string UI_DIVIDER(54, '-');
 const int CATEGORY_COUNT = 6;
@@ -151,7 +157,7 @@ int findUserByUsername(string username);
 int findClaimRecord(int itemIndex, int userIndex);
 
 // Creates the default admin account when the database has no admin yet.
-void ensureDemoAdmin() {
+void ensureAdmin() {
   for (int i = 0; i < userCount; i++) {
     if (userRole[i] == ROLE_ADMIN) {
       return;
@@ -206,30 +212,7 @@ string toLower(string s) {
 
 // Checks whether text contains a keyword without case sensitivity.
 bool containsIgnoreCase(string text, string keyword) {
-  text = toLower(text);
-  keyword = toLower(keyword);
-
-  if (keyword == "") {
-    return true;
-  }
-
-  int keywordLength = keyword.length();
-  int textLength = text.length();
-  for (int i = 0; i + keywordLength <= textLength; i++) {
-    bool match = true;
-
-    for (int j = 0; j < keywordLength; j++) {
-      if (text[i + j] != keyword[j]) {
-        match = false;
-        break;
-      }
-    }
-
-    if (match) {
-      return true;
-    }
-  }
-  return false;
+  return toLower(text).find(toLower(keyword)) != string::npos;
 }
 
 // Replaces delimiter and newline characters in stored text.
@@ -440,7 +423,7 @@ bool isUnclaimedFor30Days(string date) {
     return false;
   }
 
-  return difftime(time(0), foundAt) >= 30 * 24 * 60 * 60;
+  return difftime(time(0), foundAt) >= UNCLAIMED_DAYS * 24 * 60 * 60;
 }
 
 // Converts a zero-based index to a user-facing number.
@@ -507,6 +490,15 @@ void pauseScreen() {
   cout << "\n";
 }
 
+// Asks the locker sensor question after a door opens; returns 1, 2, or 3.
+int readSensorConfirm(string title, string done, string pending) {
+  return readInt("\n" + title + "\n" + UI_DIVIDER + "\n  1. " + done +
+                     "\n  2. " + pending +
+                     "\n  3. Laporkan masalah loker\n" + UI_DIVIDER +
+                     "\nPilih tindakan [1-3]: ",
+                 1, 3);
+}
+
 // Prints a consistent terminal screen heading.
 void printHeader(string title) {
   cout << "\n" << UI_BORDER << "\n";
@@ -515,59 +507,41 @@ void printHeader(string title) {
   cout << "  " << title << "\n" << UI_DIVIDER << "\n";
 }
 
-// Lets the user select one canonical item category.
-string selectCategory(bool allowAll) {
-  cout << "\nKATEGORI\n" << UI_DIVIDER << "\n";
+// Lets the user pick one entry from a fixed list, or "" when 0 is allowed.
+string selectFromList(string title, const string options[], int count,
+                      bool allowAll) {
+  cout << "\n" << title << "\n" << UI_DIVIDER << "\n";
   if (allowAll) {
-    cout << "  0. Semua kategori\n";
+    cout << "  0. Semua " << toLower(title) << "\n";
   }
-  for (int i = 0; i < CATEGORY_COUNT; i++) {
-    cout << "  " << i + 1 << ". " << CATEGORIES[i] << "\n";
+  for (int i = 0; i < count; i++) {
+    cout << "  " << i + 1 << ". " << options[i] << "\n";
   }
   cout << UI_DIVIDER << "\n";
 
-  int choice = readInt("Pilih kategori [" +
+  int choice = readInt("Pilih " + toLower(title) + " [" +
                            to_string(allowAll ? 0 : 1) + "-" +
-                           to_string(CATEGORY_COUNT) + "]: ",
-                       allowAll ? 0 : 1, CATEGORY_COUNT);
+                           to_string(count) + "]: ",
+                       allowAll ? 0 : 1, count);
   if (choice == 0) {
     return "";
   }
-  return CATEGORIES[choice - 1];
+  return options[choice - 1];
+}
+
+// Lets the user select one canonical item category.
+string selectCategory(bool allowAll) {
+  return selectFromList("KATEGORI", CATEGORIES, CATEGORY_COUNT, allowAll);
 }
 
 // Lets the user select one canonical campus location.
 string selectLocation(bool allowAll) {
-  cout << "\nLOKASI\n" << UI_DIVIDER << "\n";
-  if (allowAll) {
-    cout << "  0. Semua lokasi\n";
-  }
-  for (int i = 0; i < LOCATION_COUNT; i++) {
-    cout << "  " << i + 1 << ". " << LOCATIONS[i] << "\n";
-  }
-  cout << UI_DIVIDER << "\n";
-
-  int choice = readInt("Pilih lokasi [" +
-                           to_string(allowAll ? 0 : 1) + "-" +
-                           to_string(LOCATION_COUNT) + "]: ",
-                       allowAll ? 0 : 1, LOCATION_COUNT);
-  if (choice == 0) {
-    return "";
-  }
-  return LOCATIONS[choice - 1];
+  return selectFromList("LOKASI", LOCATIONS, LOCATION_COUNT, allowAll);
 }
 
 // Lets the user select one canonical study major.
 string selectMajor() {
-  cout << "\nJURUSAN\n" << UI_DIVIDER << "\n";
-  for (int i = 0; i < MAJOR_COUNT; i++) {
-    cout << "  " << i + 1 << ". " << MAJORS[i] << "\n";
-  }
-  cout << UI_DIVIDER << "\n";
-  int choice = readInt("Pilih jurusan [1-" + to_string(MAJOR_COUNT) +
-                           "]: ",
-                       1, MAJOR_COUNT);
-  return MAJORS[choice - 1];
+  return selectFromList("JURUSAN", MAJORS, MAJOR_COUNT, false);
 }
 
 // ===================== Storage: MySQL =====================
@@ -1287,11 +1261,9 @@ int loginUser(string username, string password) {
     userLocked[index] = true;
     userLockedUntil[index] = now + LOGIN_LOCK_DURATION_SECONDS;
     return LOGIN_LOCKED;
-  } else {
-    return LOGIN_WRONG_PASSWORD;
   }
 
-  return LOGIN_NOT_FOUND;
+  return LOGIN_WRONG_PASSWORD;
 }
 
 // Validates and adds a found-item record.
@@ -1398,17 +1370,17 @@ int findAvailableLocker() {
   return -1;
 }
 
-// Generates an unused six-digit deposit code.
-string makeDepositCode() {
-  int code = (int)(time(0) % 900000) + 100000;
+// Generates a six-digit code that no item with the given status uses yet.
+string makeCode(string activeStatus, string codes[]) {
+  int code = (int)(time(0) % CODE_SPAN) + CODE_MIN;
 
-  for (int attempt = 0; attempt < 900000; attempt++) {
+  for (int attempt = 0; attempt < CODE_SPAN; attempt++) {
     bool used = false;
     string candidate = to_string(code);
 
     for (int i = 0; i < foundCount; i++) {
-      if (foundStatus[i] == STATUS_DEPOSIT_PENDING &&
-          foundDepositCode[i] == candidate) {
+      if (foundStatus[i] == activeStatus &&
+          codeMatches(candidate, codes[i])) {
         used = true;
         break;
       }
@@ -1419,37 +1391,8 @@ string makeDepositCode() {
     }
 
     code++;
-    if (code > 999999) {
-      code = 100000;
-    }
-  }
-
-  return "";
-}
-
-// Generates an unused six-digit pickup code.
-string makePickupCode() {
-  int code = (int)(time(0) % 900000) + 100000;
-
-  for (int attempt = 0; attempt < 900000; attempt++) {
-    bool used = false;
-    string candidate = to_string(code);
-
-    for (int i = 0; i < foundCount; i++) {
-      if (foundStatus[i] == STATUS_CLAIM_PENDING &&
-          foundPickupCode[i] == candidate) {
-        used = true;
-        break;
-      }
-    }
-
-    if (!used) {
-      return candidate;
-    }
-
-    code++;
-    if (code > 999999) {
-      code = 100000;
+    if (code > CODE_MAX) {
+      code = CODE_MIN;
     }
   }
 
@@ -1482,9 +1425,9 @@ int reserveFoundItem(int reporterIndex, string name, string category,
 
   int itemIndex = foundCount - 1;
   foundLocker[itemIndex] = locker;
-  issuedCode = makeDepositCode();
+  issuedCode = makeCode(STATUS_DEPOSIT_PENDING, foundDepositCode);
   foundDepositCode[itemIndex] = hashText(issuedCode);
-  foundReservationExpiry[itemIndex] = (long)time(0) + 10 * 60;
+  foundReservationExpiry[itemIndex] = (long)time(0) + RESERVATION_SECONDS;
   foundDepositCodeUsedAt[itemIndex] = 0;
   foundReservedAt[itemIndex] = (long)time(0);
   foundStatus[itemIndex] = STATUS_DEPOSIT_PENDING;
@@ -1607,13 +1550,6 @@ int getFailedClaimCount(int itemIndex, int userIndex) {
   return claimFailed[record];
 }
 
-// Builds the finder contact text for an item.
-string getFinderContact(int itemIndex) {
-  int reporterIndex = foundReporter[itemIndex];
-
-  return userName[reporterIndex] + " - " + userPhone[reporterIndex];
-}
-
 // Validates a claim and starts pickup when the secret matches.
 int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
 
@@ -1636,9 +1572,9 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
   if (toLower(trim(secretAnswer)) == toLower(trim(foundSecret[itemIndex]))) {
     foundStatus[itemIndex] = STATUS_CLAIM_PENDING;
     foundClaimant[itemIndex] = claimantIndex;
-    issuedCode = makePickupCode();
+    issuedCode = makeCode(STATUS_CLAIM_PENDING, foundPickupCode);
     foundPickupCode[itemIndex] = hashText(issuedCode);
-    foundPickupExpiry[itemIndex] = (long)time(0) + 24 * 60 * 60;
+    foundPickupExpiry[itemIndex] = (long)time(0) + PICKUP_VALID_SECONDS;
     foundPickupFailed[itemIndex] = 0;
     foundPickupCodeUsedAt[itemIndex] = 0;
 
@@ -1746,12 +1682,9 @@ void showPickupFlow(int claimantIndex, int itemIndex) {
     foundPickupCodeUsedAt[itemIndex] = (long)time(0);
     cout << "[OK] Pintu loker terbuka.\n";
     while (true) {
-      int sensor = readInt("\nKONFIRMASI PENGAMBILAN\n" + UI_DIVIDER + "\n"
-                           "  1. Barang sudah diambil dan pintu tertutup\n"
-                           "  2. Saya belum selesai\n"
-                           "  3. Laporkan masalah loker\n" + UI_DIVIDER + "\n"
-                           "Pilih tindakan [1-3]: ",
-                           1, 3);
+      int sensor = readSensorConfirm(
+          "KONFIRMASI PENGAMBILAN", "Barang sudah diambil dan pintu tertutup",
+          "Saya belum selesai");
 
       if (sensor == 1) {
         addLockerLog(foundLocker[itemIndex], itemIndex, LOG_AMBIL_OK,
@@ -1942,12 +1875,9 @@ void showReportFoundScreen(int userIndex) {
   }
 
   while (true) {
-    int sensor = readInt("\nKONFIRMASI PENITIPAN\n" + UI_DIVIDER + "\n"
-                         "  1. Barang sudah ditaruh dan pintu tertutup\n"
-                         "  2. Saya masih menata barang\n"
-                         "  3. Laporkan masalah loker\n" + UI_DIVIDER + "\n"
-                         "Pilih tindakan [1-3]: ",
-                         1, 3);
+    int sensor = readSensorConfirm(
+        "KONFIRMASI PENITIPAN", "Barang sudah ditaruh dan pintu tertutup",
+        "Saya masih menata barang");
 
     if (sensor == 1) {
       foundStatus[itemIndex] = STATUS_AVAILABLE;
@@ -2303,9 +2233,9 @@ void showAdminMenu() {
                                1, 2);
         if (verified == 1) {
           foundStatus[item] = STATUS_CLAIM_PENDING;
-          issuedCode = makePickupCode();
+          issuedCode = makeCode(STATUS_CLAIM_PENDING, foundPickupCode);
           foundPickupCode[item] = hashText(issuedCode);
-          foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
+          foundPickupExpiry[item] = (long)time(0) + PICKUP_VALID_SECONDS;
           foundPickupFailed[item] = 0;
           foundPickupCodeUsedAt[item] = 0;
           cout << "Kode ambil baru: " << issuedCode << "\n";
@@ -2364,9 +2294,9 @@ void showAdminMenu() {
         }
         foundStatus[item] = STATUS_CLAIM_PENDING;
         foundClaimant[item] = claimUser[claim];
-        issuedCode = makePickupCode();
+        issuedCode = makeCode(STATUS_CLAIM_PENDING, foundPickupCode);
         foundPickupCode[item] = hashText(issuedCode);
-        foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
+        foundPickupExpiry[item] = (long)time(0) + PICKUP_VALID_SECONDS;
         foundPickupFailed[item] = 0;
         foundPickupCodeUsedAt[item] = 0;
         claimFailed[claim] = 0;
@@ -2428,7 +2358,7 @@ int main() {
   }
 
   loadAll();
-  ensureDemoAdmin();
+  ensureAdmin();
   saveAll();
 
   bool isRunning = true;

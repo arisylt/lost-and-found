@@ -12,7 +12,30 @@ g++ -std=c++11 -Wall -Wextra src/main.cpp -o lostfound
 ```
 
 
-Pilih `3` pada menu tamu untuk keluar. Setelah TODO diisi, jalankan ulang skenario di `tests/manual_tests.md`.
+Pilih `3` pada menu tamu untuk keluar.
+
+## Format file data
+
+Semua data disimpan sebagai file teks di direktori tempat program dijalankan, dengan pemisah `|`. File yang tidak ada dianggap kosong, dan format lama tetap terbaca.
+
+| File | Kolom |
+| --- | --- |
+| `users.txt` | `username\|password\|phone\|failed\|locked\|fullName\|major\|email\|role\|lockedUntil` |
+| `found_items.txt` | `reporter\|name\|category\|location\|date\|description\|secret\|status\|(cadangan)\|locker\|depositCode\|reservationExpiry\|claimant\|pickupCode\|pickupExpiry\|pickupFailed` |
+| `lost_reports.txt` | `reporter\|name\|category\|location\|date\|description` |
+| `claims.txt` | `item\|user\|failed\|status\|claimedAt\|verifiedAt` |
+| `lockers.txt` | satu baris per loker: `1` rusak, `0` siap |
+| `locker_logs.txt` | `locker\|item\|type\|time\|note`, maksimal 500 entri terakhir |
+
+Kolom ke-9 `found_items.txt` adalah kolom cadangan yang selalu ditulis kosong; nomornya dipertahankan agar file lama tidak bergeser. Lokasi dan kategori disimpan sebagai nama dari daftar pilihan di bagian atas `main.cpp`.
+
+## Uji otomatis
+
+Skrip Expect di `test/` membangun `build/lostfound-test` dan memakai direktori sementara sendiri, sehingga data di root repo tidak tersentuh.
+
+```bash
+for f in test/*.exp; do expect "$f"; done
+```
 
 ## Struktur kode
 
@@ -42,9 +65,10 @@ Semua kode ada dalam satu file: `src/main.cpp`. Setiap pemilik bekerja hanya pad
 - Fase 1 **tidak memakai** `.h`, `struct`, `vector`, class, pointer, referensi, atau template. Semua data ada pada array paralel global.
 - Semua bagian sengaja digabung dalam satu `main.cpp`; banner kepemilikan menjaga pembagian kerja tetap jelas.
 - Password disimpan polos (apa adanya). Ini tidak aman untuk aplikasi nyata dan hanya boleh untuk latihan.
-- Akun yang terkunci tidak memiliki jalur buka dari menu; satu-satunya cara saat ini adalah mengedit data.
-- Penyimpanan file `data/*.txt` bersifat opsional. Stub `loadAll`/`saveAll` aman bila belum diisi.
-- Tidak ada penghapusan data; indeks array tidak bergeser. Admin demo (`admin` / `admin123`) saat ini hanya memiliki menu logout sampai modul loker dan anomali ditambahkan.
+- Akun yang terkunci tidak memiliki jalur buka dari menu; kunci 15 menit tersimpan di `users.txt` dan tetap berlaku setelah program ditutup, jadi cara membukanya adalah mengedit data.
+- Penyimpanan file teks selalu aktif; `loadAll`/`saveAll` menerima format kolom lama maupun baru.
+- Tidak ada penghapusan data; indeks array tidak bergeser. Admin demo (`admin` / `admin123`) memiliki menu anomali, penanganan barang, klaim diblokir, status loker, log loker, dan logout.
+- Password dan kode loker disimpan polos tanpa hashing. Ini keputusan yang masih terbuka untuk tim.
 
 Baca `docs/data-model.md` sebelum mengubah array dan `docs/TASKS.md` sebelum mulai mengisi TODO.
 

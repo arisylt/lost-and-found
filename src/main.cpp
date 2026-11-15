@@ -111,7 +111,6 @@ string userName[MAX_USERS], userPassword[MAX_USERS], userPhone[MAX_USERS],
     userFullName[MAX_USERS], userMajor[MAX_USERS], userEmail[MAX_USERS],
     userRole[MAX_USERS];
 int userFailed[MAX_USERS];
-bool userLocked[MAX_USERS];
 long userLockedUntil[MAX_USERS];
 int userCount = 0;
 
@@ -175,7 +174,6 @@ void ensureAdmin() {
   userMajor[userCount] = "";
   userEmail[userCount] = "";
   userFailed[userCount] = 0;
-  userLocked[userCount] = false;
   userLockedUntil[userCount] = 0;
   userRole[userCount] = ROLE_ADMIN;
   userCount++;
@@ -671,6 +669,20 @@ string dbQuoteOrNull(string text) {
   return dbQuote(text);
 }
 
+// Makes sure a free-text category exists so items can point at it.
+bool ensureCategory(string name) {
+  return dbRun("INSERT IGNORE INTO categories (nama_kategori) VALUES (" +
+               dbQuote(name) + ")");
+}
+
+// Makes sure a free-text location exists so items and reports can point at it.
+bool ensureLocation(string name) {
+  return dbRun("INSERT INTO locations (nama_gedung) SELECT " + dbQuote(name) +
+               " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
+               "WHERE nama_gedung = " +
+               dbQuote(name) + ")");
+}
+
 // Copies every array into MySQL inside one transaction (all or nothing).
 bool dbSyncAll() {
   if (dbConn == NULL) {
@@ -694,7 +706,7 @@ bool dbSyncAll() {
   }
 
   for (int i = 0; i < userCount && ok; i++) {
-    string locked = userLocked[i] ? dbTime(userLockedUntil[i]) : "NULL";
+    string locked = dbTime(userLockedUntil[i]);
     ok = dbRun("INSERT INTO users (nim, nama, jurusan, email, no_hp, "
                "password_hash, role, failed_login, locked_until) VALUES (" +
                dbQuote(userName[i]) + "," + dbQuote(userFullName[i]) + "," +
@@ -730,14 +742,9 @@ bool dbSyncAll() {
     }
 
     // Unknown (old, free-text) categories and locations get their own row.
-    ok = dbRun("INSERT IGNORE INTO categories (nama_kategori) VALUES (" +
-               dbQuote(foundCategory[i]) + ")");
+    ok = ensureCategory(foundCategory[i]);
     if (ok) {
-      ok = dbRun("INSERT INTO locations (nama_gedung) SELECT " +
-                 dbQuote(foundLocation[i]) +
-                 " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
-                 "WHERE nama_gedung = " +
-                 dbQuote(foundLocation[i]) + ")");
+      ok = ensureLocation(foundLocation[i]);
     }
     if (ok) {
       ok = dbRun(
@@ -762,14 +769,9 @@ bool dbSyncAll() {
       continue;
     }
 
-    ok = dbRun("INSERT IGNORE INTO categories (nama_kategori) VALUES (" +
-               dbQuote(lostCategory[i]) + ")");
+    ok = ensureCategory(lostCategory[i]);
     if (ok) {
-      ok = dbRun("INSERT INTO locations (nama_gedung) SELECT " +
-                 dbQuote(lostLocation[i]) +
-                 " FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM locations "
-                 "WHERE nama_gedung = " +
-                 dbQuote(lostLocation[i]) + ")");
+      ok = ensureLocation(lostLocation[i]);
     }
     if (ok) {
       ok = dbRun(
@@ -903,7 +905,6 @@ void loadAll() {
       userPhone[userCount] = dbValue(row, 2);
       userFailed[userCount] = atoi(dbValue(row, 3).c_str());
       userLockedUntil[userCount] = atol(dbValue(row, 4).c_str());
-      userLocked[userCount] = userLockedUntil[userCount] > 0;
       userFullName[userCount] = dbValue(row, 5);
       userMajor[userCount] = dbValue(row, 6);
       userEmail[userCount] = dbValue(row, 7);
@@ -1184,7 +1185,6 @@ int registerUser(string username, string password,
   userPassword[userCount] = hashText(password);
   userPhone[userCount] = phone;
   userFailed[userCount] = 0;
-  userLocked[userCount] = false;
   userLockedUntil[userCount] = 0;
 
   userCount++;
@@ -1239,11 +1239,11 @@ int loginUser(string username, string password) {
     return LOGIN_NOT_FOUND;
 
   long now = (long)time(0);
-  if (userLocked[index]) {
-    if (now < userLockedUntil[index]) {
-      return LOGIN_LOCKED;
-    }
-    userLocked[index] = false;
+  if (now < userLockedUntil[index]) {
+    return LOGIN_LOCKED;
+  }
+  if (userLockedUntil[index] != 0) {
+    // The lock expired on its own, so clear it before checking the password.
     userLockedUntil[index] = 0;
     userFailed[index] = 0;
   }
@@ -1258,7 +1258,6 @@ int loginUser(string username, string password) {
   }
 
   if (userFailed[index] >= MAX_LOGIN_ATTEMPTS) {
-    userLocked[index] = true;
     userLockedUntil[index] = now + LOGIN_LOCK_DURATION_SECONDS;
     return LOGIN_LOCKED;
   }
@@ -1540,6 +1539,28 @@ int findClaimRecord(int itemIndex, int userIndex) {
   return -1;
 }
 
+// Finds the claim record of an item and user, creating it when missing.
+int findOrCreateClaim(int itemIndex, int userIndex) {
+  int record = findClaimRecord(itemIndex, userIndex);
+  if (record != -1) {
+    return record;
+  }
+
+  if (claimCount >= MAX_CLAIMS) {
+    return -1;
+  }
+
+  record = claimCount;
+  claimItem[record] = itemIndex;
+  claimUser[record] = userIndex;
+  claimFailed[record] = 0;
+  claimClaimedAt[record] = 0;
+  claimVerifiedAt[record] = 0;
+  claimCount++;
+
+  return record;
+}
+
 // Returns prior failed claim attempts for an item and user.
 int getFailedClaimCount(int itemIndex, int userIndex) {
   int record = findClaimRecord(itemIndex, userIndex);
@@ -1578,15 +1599,7 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
     foundPickupFailed[itemIndex] = 0;
     foundPickupCodeUsedAt[itemIndex] = 0;
 
-    int record = findClaimRecord(itemIndex, claimantIndex);
-    if (record == -1 && claimCount < MAX_CLAIMS) {
-      record = claimCount;
-      claimItem[record] = itemIndex;
-      claimUser[record] = claimantIndex;
-      claimFailed[record] = 0;
-      claimVerifiedAt[record] = 0;
-      claimCount++;
-    }
+    int record = findOrCreateClaim(itemIndex, claimantIndex);
     if (record != -1) {
       claimStatus[record] = CLAIM_STATUS_APPROVED;
       claimClaimedAt[record] = (long)time(0);
@@ -1596,19 +1609,9 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
     return CLAIM_APPROVED;
   }
 
-  int record = findClaimRecord(itemIndex, claimantIndex);
+  int record = findOrCreateClaim(itemIndex, claimantIndex);
   if (record == -1) {
-    if (claimCount >= MAX_CLAIMS) {
-      return CLAIM_STORAGE_FULL;
-    }
-
-    record = claimCount;
-    claimItem[record] = itemIndex;
-    claimUser[record] = claimantIndex;
-    claimFailed[record] = 0;
-    claimClaimedAt[record] = 0;
-    claimVerifiedAt[record] = 0;
-    claimCount++;
+    return CLAIM_STORAGE_FULL;
   }
 
   claimFailed[record]++;
@@ -1787,6 +1790,78 @@ int showLoginScreen() {
   return -1;
 }
 
+// Runs the keypad, door, and sensor steps of a deposit reservation.
+void showDepositFlow(int itemIndex) {
+  saveAll();
+  cout << "\nRESERVASI LOKER\n" << UI_DIVIDER << "\n";
+  cout << "[OK] Loker " << lockerLabel(foundLocker[itemIndex])
+       << " dicadangkan selama 10 menit.\n";
+  cout << "Kode titip: " << issuedCode << "\n";
+
+  while (foundDepositFailed[itemIndex] < MAX_CLAIM_ATTEMPTS) {
+    string code = trim(readLine("Masukkan kode pada keypad loker: "));
+    if ((long)time(0) > foundReservationExpiry[itemIndex]) {
+      cancelDepositReservation(itemIndex);
+      saveAll();
+      cout << "Reservasi habis; kode titip dihanguskan.\n";
+      return;
+    }
+
+    if (codeMatches(code, foundDepositCode[itemIndex])) {
+      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_PINTU_TITIP,
+                   foundName[itemIndex]);
+      foundDepositCodeUsedAt[itemIndex] = (long)time(0);
+      cout << "[OK] Pintu loker terbuka.\n";
+      break;
+    }
+
+    foundDepositFailed[itemIndex]++;
+    saveAll();
+    if (foundDepositFailed[itemIndex] < MAX_CLAIM_ATTEMPTS) {
+      cout << "Kode salah. Percobaan tersisa: "
+           << MAX_CLAIM_ATTEMPTS - foundDepositFailed[itemIndex] << "\n";
+    }
+  }
+
+  if (foundDepositFailed[itemIndex] >= MAX_CLAIM_ATTEMPTS) {
+    cancelDepositReservation(itemIndex);
+    saveAll();
+    cout << "Kode salah tiga kali; reservasi dibatalkan.\n";
+    return;
+  }
+
+  while (true) {
+    int sensor = readSensorConfirm(
+        "KONFIRMASI PENITIPAN", "Barang sudah ditaruh dan pintu tertutup",
+        "Saya masih menata barang");
+
+    if (sensor == 1) {
+      foundStatus[itemIndex] = STATUS_AVAILABLE;
+      foundDepositCode[itemIndex] = "";
+      foundReservationExpiry[itemIndex] = 0;
+      foundDepositFailed[itemIndex] = 0;
+      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_TITIP_OK,
+                   foundName[itemIndex]);
+      foundDepositedAt[itemIndex] = (long)time(0);
+      saveAll();
+      cout << "[OK] Penitipan selesai. Barang sekarang dapat dicari.\n";
+      break;
+    }
+
+    if (sensor == 3) {
+      foundStatus[itemIndex] = STATUS_NEEDS_VERIFICATION;
+      foundDepositCode[itemIndex] = "";
+      foundReservationExpiry[itemIndex] = 0;
+      foundDepositFailed[itemIndex] = 0;
+      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_MASALAH_LOKER,
+                   foundName[itemIndex]);
+      saveAll();
+      cout << "Anomali tercatat; loker dikunci untuk verifikasi admin.\n";
+      break;
+    }
+  }
+}
+
 // Runs the terminal locker deposit screen.
 void showReportFoundScreen(int userIndex) {
   printHeader("Titip Barang");
@@ -1833,80 +1908,10 @@ void showReportFoundScreen(int userIndex) {
     return;
   }
 
-  int itemIndex = foundCount - 1;
-  saveAll();
-  cout << "\nRESERVASI LOKER\n" << UI_DIVIDER << "\n";
-  cout << "[OK] Loker " << lockerLabel(foundLocker[itemIndex])
-       << " dicadangkan selama 10 menit.\n";
-  cout << "Kode titip: " << issuedCode << "\n";
-
-  while (foundDepositFailed[itemIndex] < MAX_CLAIM_ATTEMPTS) {
-    string code = trim(readLine("Masukkan kode pada keypad loker: "));
-    if ((long)time(0) > foundReservationExpiry[itemIndex]) {
-      cancelDepositReservation(itemIndex);
-      saveAll();
-      cout << "Reservasi habis; kode titip dihanguskan.\n";
-      pauseScreen();
-      return;
-    }
-
-    if (codeMatches(code, foundDepositCode[itemIndex])) {
-      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_PINTU_TITIP,
-                   foundName[itemIndex]);
-      foundDepositCodeUsedAt[itemIndex] = (long)time(0);
-      cout << "[OK] Pintu loker terbuka.\n";
-      break;
-    }
-
-    foundDepositFailed[itemIndex]++;
-    saveAll();
-    if (foundDepositFailed[itemIndex] < MAX_CLAIM_ATTEMPTS) {
-      cout << "Kode salah. Percobaan tersisa: "
-                << MAX_CLAIM_ATTEMPTS - foundDepositFailed[itemIndex] << "\n";
-    }
-  }
-
-  if (foundDepositFailed[itemIndex] >= MAX_CLAIM_ATTEMPTS) {
-    cancelDepositReservation(itemIndex);
-    saveAll();
-    cout << "Kode salah tiga kali; reservasi dibatalkan.\n";
-    pauseScreen();
-    return;
-  }
-
-  while (true) {
-    int sensor = readSensorConfirm(
-        "KONFIRMASI PENITIPAN", "Barang sudah ditaruh dan pintu tertutup",
-        "Saya masih menata barang");
-
-    if (sensor == 1) {
-      foundStatus[itemIndex] = STATUS_AVAILABLE;
-      foundDepositCode[itemIndex] = "";
-      foundReservationExpiry[itemIndex] = 0;
-      foundDepositFailed[itemIndex] = 0;
-      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_TITIP_OK,
-                   foundName[itemIndex]);
-      foundDepositedAt[itemIndex] = (long)time(0);
-      saveAll();
-      cout << "[OK] Penitipan selesai. Barang sekarang dapat dicari.\n";
-      break;
-    }
-
-    if (sensor == 3) {
-      foundStatus[itemIndex] = STATUS_NEEDS_VERIFICATION;
-      foundDepositCode[itemIndex] = "";
-      foundReservationExpiry[itemIndex] = 0;
-      foundDepositFailed[itemIndex] = 0;
-      addLockerLog(foundLocker[itemIndex], itemIndex, LOG_MASALAH_LOKER,
-                   foundName[itemIndex]);
-      saveAll();
-      cout << "Anomali tercatat; loker dikunci untuk verifikasi admin.\n";
-      break;
-    }
-  }
-
+  showDepositFlow(foundCount - 1);
   pauseScreen();
 }
+
 
 // Runs the terminal lost-item report screen.
 void showReportLostScreen(int userIndex, string prefillName) {
@@ -2199,6 +2204,148 @@ int showBlockedClaims() {
 }
 
 // Runs the terminal admin anomaly and locker workflow.
+// Lists the items that need an admin decision.
+void showAdminAnomalies() {
+  bool found = false;
+  for (int i = 0; i < foundCount; i++) {
+    if (foundStatus[i] == STATUS_NEEDS_VERIFICATION ||
+        foundStatus[i] == STATUS_PICKUP_LOCKED ||
+        (foundStatus[i] == STATUS_AVAILABLE &&
+         isUnclaimedFor30Days(foundDate[i]))) {
+      cout << "  [" << toDisplayNo(i) << "] " << foundName[i]
+           << "\n      Status: " << foundStatus[i] << "\n";
+      found = true;
+    }
+  }
+  if (!found) {
+    cout << "Tidak ada anomali aktif.\n";
+  }
+}
+
+// Lets the admin resolve the item in the given slot.
+void handleAdminItem(int item) {
+  if (foundStatus[item] == STATUS_PICKUP_LOCKED) {
+    int verified = readInt("Pemilik terverifikasi?\n1. Ya, kode baru\n2. "
+                           "Tidak, batalkan klaim\nPilih: ",
+                           1, 2);
+    if (verified == 1) {
+      foundStatus[item] = STATUS_CLAIM_PENDING;
+      issuedCode = makeCode(STATUS_CLAIM_PENDING, foundPickupCode);
+      foundPickupCode[item] = hashText(issuedCode);
+      foundPickupExpiry[item] = (long)time(0) + PICKUP_VALID_SECONDS;
+      foundPickupFailed[item] = 0;
+      foundPickupCodeUsedAt[item] = 0;
+      cout << "Kode ambil baru: " << issuedCode << "\n";
+    } else {
+      foundStatus[item] = STATUS_AVAILABLE;
+      clearPickupDetails(item);
+    }
+    saveAll();
+  } else if (foundStatus[item] == STATUS_NEEDS_VERIFICATION) {
+    int action = readInt(
+        "1. Reset: barang tersedia\n2. Tandai loker rusak\nPilih: ", 1, 2);
+    if (action == 1) {
+      addLockerLog(foundLocker[item], item, LOG_RESET_ADMIN, foundName[item]);
+      foundStatus[item] = STATUS_AVAILABLE;
+      clearPickupDetails(item);
+    } else if (foundLocker[item] >= 0) {
+      addLockerLog(foundLocker[item], item, LOG_LOKER_RUSAK, foundName[item]);
+      lockerBroken[foundLocker[item]] = true;
+    }
+    saveAll();
+  } else if (foundStatus[item] == STATUS_AVAILABLE &&
+             isUnclaimedFor30Days(foundDate[item])) {
+    foundStatus[item] = STATUS_CAMPUS_HANDOFF;
+    foundLocker[item] = -1;
+    clearPickupDetails(item);
+    saveAll();
+    cout << "Barang diserahkan ke pengelola kampus.\n";
+  } else {
+    cout << "Barang ini tidak memerlukan tindakan admin.\n";
+  }
+}
+
+// Lets the admin verify or reject one blocked claim; false means "go back".
+bool handleAdminBlockedClaim() {
+  if (showBlockedClaims() == 0) {
+    return false;
+  }
+
+  int claim = toIndex(readInt("Nomor klaim diblokir: ", 1, claimCount));
+  if (claimFailed[claim] < MAX_CLAIM_ATTEMPTS) {
+    cout << "Klaim tersebut tidak diblokir.\n";
+    return false;
+  }
+
+  int item = claimItem[claim];
+  int verified = readInt("Pemilik terverifikasi?\n1. Ya, kode ambil baru\n2. "
+                         "Tidak, tolak klaim\nPilih: ",
+                         1, 2);
+  if (verified == 1) {
+    if (foundStatus[item] != STATUS_AVAILABLE) {
+      cout << "Barang tidak lagi tersedia untuk diklaim.\n";
+      return false;
+    }
+    foundStatus[item] = STATUS_CLAIM_PENDING;
+    foundClaimant[item] = claimUser[claim];
+    issuedCode = makeCode(STATUS_CLAIM_PENDING, foundPickupCode);
+    foundPickupCode[item] = hashText(issuedCode);
+    foundPickupExpiry[item] = (long)time(0) + PICKUP_VALID_SECONDS;
+    foundPickupFailed[item] = 0;
+    foundPickupCodeUsedAt[item] = 0;
+    claimFailed[claim] = 0;
+    claimStatus[claim] = CLAIM_STATUS_APPROVED;
+    claimVerifiedAt[claim] = (long)time(0);
+    saveAll();
+    cout << "Kode ambil baru: " << issuedCode << "\n";
+  } else {
+    claimFailed[claim] = 0;
+    claimStatus[claim] = CLAIM_STATUS_REJECTED;
+    saveAll();
+    cout << "Klaim ditolak dan dicatat.\n";
+  }
+
+  return true;
+}
+
+// Shows the 3 x 3 locker wall with its current state.
+void showAdminLockers() {
+  cout << "\nLOKER 3 x 3\n" << UI_DIVIDER << "\n";
+  for (int i = 0; i < MAX_LOCKERS; i++) {
+    string status = lockerBroken[i]
+                        ? "DEFECTIVE"
+                        : (lockerIsOccupied(i) ? "FULL" : "READY");
+    cout << "  " << lockerLabel(i) << " [" << status << "]";
+    if (i % 3 == 2) {
+      cout << "\n";
+    }
+  }
+}
+
+// Shows the 20 newest locker events with their label and note.
+void showAdminLogs() {
+  cout << "\nLOG LOKER (20 TERBARU)\n" << UI_DIVIDER << "\n";
+  if (logCount == 0) {
+    cout << "Belum ada log loker.\n";
+  }
+  int shown = 0;
+  for (int i = logCount - 1; i >= 0 && shown < 20; i--) {
+    shown++;
+    cout << "  " << formatLogTime(logTime[i]) << "  ";
+    if (logLocker[i] >= 0 && logLocker[i] < MAX_LOCKERS) {
+      cout << lockerLabel(logLocker[i]);
+    } else {
+      cout << "-";
+    }
+    cout << "  " << logType[i];
+    if (logNote[i] != "") {
+      cout << "  " << logNote[i];
+    }
+    cout << "\n";
+  }
+}
+
+// Runs the terminal admin menu.
 void showAdminMenu() {
   bool active = true;
   while (active) {
@@ -2210,142 +2357,25 @@ void showAdminMenu() {
     cout << "  5. Lihat log loker\n";
     cout << "  6. Logout\n" << UI_DIVIDER << "\n";
     int choice = readInt("Pilih menu [1-6]: ", 1, 6);
+
     if (choice == 1) {
-      bool found = false;
-      for (int i = 0; i < foundCount; i++) {
-        if (foundStatus[i] == STATUS_NEEDS_VERIFICATION ||
-            foundStatus[i] == STATUS_PICKUP_LOCKED ||
-            (foundStatus[i] == STATUS_AVAILABLE &&
-             isUnclaimedFor30Days(foundDate[i]))) {
-          cout << "  [" << toDisplayNo(i) << "] " << foundName[i]
-                    << "\n      Status: " << foundStatus[i] << "\n";
-          found = true;
-        }
-      }
-      if (!found)
-        cout << "Tidak ada anomali aktif.\n";
-      pauseScreen();
+      showAdminAnomalies();
     } else if (choice == 2) {
-      int item = toIndex(readInt("Nomor barang: ", 1, foundCount));
-      if (foundStatus[item] == STATUS_PICKUP_LOCKED) {
-        int verified = readInt("Pemilik terverifikasi?\n1. Ya, kode baru\n2. "
-                               "Tidak, batalkan klaim\nPilih: ",
-                               1, 2);
-        if (verified == 1) {
-          foundStatus[item] = STATUS_CLAIM_PENDING;
-          issuedCode = makeCode(STATUS_CLAIM_PENDING, foundPickupCode);
-          foundPickupCode[item] = hashText(issuedCode);
-          foundPickupExpiry[item] = (long)time(0) + PICKUP_VALID_SECONDS;
-          foundPickupFailed[item] = 0;
-          foundPickupCodeUsedAt[item] = 0;
-          cout << "Kode ambil baru: " << issuedCode << "\n";
-        } else {
-          foundStatus[item] = STATUS_AVAILABLE;
-          clearPickupDetails(item);
-        }
-        saveAll();
-      } else if (foundStatus[item] == STATUS_NEEDS_VERIFICATION) {
-        int action = readInt(
-            "1. Reset: barang tersedia\n2. Tandai loker rusak\nPilih: ", 1, 2);
-        if (action == 1) {
-          addLockerLog(foundLocker[item], item, LOG_RESET_ADMIN,
-                       foundName[item]);
-          foundStatus[item] = STATUS_AVAILABLE;
-          clearPickupDetails(item);
-        } else if (foundLocker[item] >= 0) {
-          addLockerLog(foundLocker[item], item, LOG_LOKER_RUSAK,
-                       foundName[item]);
-          lockerBroken[foundLocker[item]] = true;
-        }
-        saveAll();
-      } else if (foundStatus[item] == STATUS_AVAILABLE &&
-                 isUnclaimedFor30Days(foundDate[item])) {
-        foundStatus[item] = STATUS_CAMPUS_HANDOFF;
-        foundLocker[item] = -1;
-        clearPickupDetails(item);
-        saveAll();
-        cout << "Barang diserahkan ke pengelola kampus.\n";
-      } else {
-        cout << "Barang ini tidak memerlukan tindakan admin.\n";
-      }
-      pauseScreen();
+      handleAdminItem(toIndex(readInt("Nomor barang: ", 1, foundCount)));
     } else if (choice == 3) {
-      if (showBlockedClaims() == 0) {
+      if (!handleAdminBlockedClaim()) {
         pauseScreen();
         continue;
       }
-
-      int claim = toIndex(readInt("Nomor klaim diblokir: ", 1, claimCount));
-      if (claimFailed[claim] < MAX_CLAIM_ATTEMPTS) {
-        cout << "Klaim tersebut tidak diblokir.\n";
-        pauseScreen();
-        continue;
-      }
-
-      int item = claimItem[claim];
-      int verified = readInt("Pemilik terverifikasi?\n1. Ya, kode ambil baru\n2. "
-                             "Tidak, tolak klaim\nPilih: ",
-                             1, 2);
-      if (verified == 1) {
-        if (foundStatus[item] != STATUS_AVAILABLE) {
-          cout << "Barang tidak lagi tersedia untuk diklaim.\n";
-          pauseScreen();
-          continue;
-        }
-        foundStatus[item] = STATUS_CLAIM_PENDING;
-        foundClaimant[item] = claimUser[claim];
-        issuedCode = makeCode(STATUS_CLAIM_PENDING, foundPickupCode);
-        foundPickupCode[item] = hashText(issuedCode);
-        foundPickupExpiry[item] = (long)time(0) + PICKUP_VALID_SECONDS;
-        foundPickupFailed[item] = 0;
-        foundPickupCodeUsedAt[item] = 0;
-        claimFailed[claim] = 0;
-        claimStatus[claim] = CLAIM_STATUS_APPROVED;
-        claimVerifiedAt[claim] = (long)time(0);
-        saveAll();
-        cout << "Kode ambil baru: " << issuedCode << "\n";
-      } else {
-        claimFailed[claim] = 0;
-        claimStatus[claim] = CLAIM_STATUS_REJECTED;
-        saveAll();
-        cout << "Klaim ditolak dan dicatat.\n";
-      }
-      pauseScreen();
     } else if (choice == 4) {
-      cout << "\nLOKER 3 x 3\n" << UI_DIVIDER << "\n";
-      for (int i = 0; i < MAX_LOCKERS; i++) {
-        string status = lockerBroken[i] ? "DEFECTIVE"
-                                         : (lockerIsOccupied(i) ? "FULL" : "READY");
-        cout << "  " << lockerLabel(i) << " [" << status << "]";
-        if (i % 3 == 2) {
-          cout << "\n";
-        }
-      }
-      pauseScreen();
+      showAdminLockers();
     } else if (choice == 5) {
-      cout << "\nLOG LOKER (20 TERBARU)\n" << UI_DIVIDER << "\n";
-      if (logCount == 0) {
-        cout << "Belum ada log loker.\n";
-      }
-      int shown = 0;
-      for (int i = logCount - 1; i >= 0 && shown < 20; i--) {
-        shown++;
-        cout << "  " << formatLogTime(logTime[i]) << "  ";
-        if (logLocker[i] >= 0 && logLocker[i] < MAX_LOCKERS) {
-          cout << lockerLabel(logLocker[i]);
-        } else {
-          cout << "-";
-        }
-        cout << "  " << logType[i];
-        if (logNote[i] != "") {
-          cout << "  " << logNote[i];
-        }
-        cout << "\n";
-      }
-      pauseScreen();
+      showAdminLogs();
     } else {
       active = false;
+      continue;
     }
+    pauseScreen();
   }
 }
 

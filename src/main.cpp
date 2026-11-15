@@ -7,7 +7,9 @@
 // Headers live in /usr/include/mysql, so this path resolves without -I and
 // editors (clangd) can find it without running mysql_config.
 #include <mysql/mysql.h>
-#include <openssl/evp.h>
+#include <crypt.h>
+#include <cstring>
+#include <random>
 
 using namespace std;
 
@@ -21,6 +23,7 @@ const int MAX_LOGIN_ATTEMPTS = 3;
 const int LOGIN_LOCK_DURATION_SECONDS = 15 * 60;
 const int MAX_CLAIM_ATTEMPTS = 3;
 const int MIN_PASSWORD_LENGTH = 6;
+const int BCRYPT_COST = 10;
 const string UI_BORDER(54, '=');
 const string UI_DIVIDER(54, '-');
 const int CATEGORY_COUNT = 6;
@@ -143,7 +146,7 @@ int searchResult[MAX_FOUND];
 int searchResultCount = 0;
 
 // Forward declarations for helpers used by the storage layer.
-string sha256Hex(string text);
+string hashText(string text);
 int findUserByUsername(string username);
 int findClaimRecord(int itemIndex, int userIndex);
 
@@ -160,7 +163,7 @@ void ensureDemoAdmin() {
   }
 
   userName[userCount] = "admin";
-  userPassword[userCount] = sha256Hex("admin123");
+  userPassword[userCount] = hashText("admin123");
   userPhone[userCount] = "0000000000";
   userFullName[userCount] = "Administrator";
   userMajor[userCount] = "";
@@ -241,64 +244,63 @@ string sanitizeField(string s) {
   return s;
 }
 
-// Returns the SHA-256 digest of text as 64 lowercase hex characters.
-string sha256Hex(string text) {
-  unsigned char digest[EVP_MAX_MD_SIZE];
-  unsigned int length = 0;
-  const string hex = "0123456789abcdef";
-
-  EVP_MD_CTX *context = EVP_MD_CTX_new();
-  bool ok = context != NULL &&
-            EVP_DigestInit_ex(context, EVP_sha256(), NULL) == 1 &&
-            EVP_DigestUpdate(context, text.c_str(), text.length()) == 1 &&
-            EVP_DigestFinal_ex(context, digest, &length) == 1;
-  if (context != NULL) {
-    EVP_MD_CTX_free(context);
+// Returns a salted bcrypt hash (60 characters) of text.
+string hashText(string text) {
+  unsigned char random[16];
+  random_device bytes;
+  for (int i = 0; i < 16; i++) {
+    random[i] = (unsigned char)(bytes() & 0xff);
   }
-  if (!ok) {
-    cout << "[Hash] Gagal menghitung SHA-256.\n";
+
+  char salt[64];
+  if (crypt_gensalt_rn("$2b$", BCRYPT_COST, (const char *)random, 16, salt,
+                       sizeof(salt)) == NULL) {
+    cout << "[Hash] Gagal membuat salt bcrypt.\n";
     exit(1);
   }
 
-  string result = "";
-  for (unsigned int i = 0; i < length; i++) {
-    result += hex[digest[i] >> 4];
-    result += hex[digest[i] & 0xf];
+  struct crypt_data data;
+  memset(&data, 0, sizeof(data));
+  char *hash = crypt_rn(text.c_str(), salt, &data, (int)sizeof(data));
+  if (hash == NULL) {
+    cout << "[Hash] Gagal menghitung bcrypt.\n";
+    exit(1);
   }
-  return result;
+
+  return string(hash);
 }
 
-// Checks whether stored text is already a SHA-256 digest.
+// Checks whether stored text is already a bcrypt hash.
 bool isHashed(string stored) {
-  if ((int)stored.length() != 64) {
-    return false;
-  }
-
-  for (int i = 0; i < 64; i++) {
-    if (!isxdigit(stored[i])) {
-      return false;
-    }
-  }
-  return true;
+  return stored.length() == 60 && stored.compare(0, 4, "$2b$") == 0;
 }
 
-// Matches a typed password against a digest or a legacy plaintext value.
+// Checks a typed value against a stored bcrypt hash; the salt is inside it.
+bool hashMatches(string typed, string stored) {
+  struct crypt_data data;
+  memset(&data, 0, sizeof(data));
+  char *hash = crypt_rn(typed.c_str(), stored.c_str(), &data, (int)sizeof(data));
+
+  return hash != NULL && stored == hash;
+}
+
+// Matches a typed password against a hash or a legacy plaintext value.
 bool passwordMatches(string typed, string stored) {
   if (isHashed(stored)) {
-    return sha256Hex(typed) == toLower(stored);
+    return hashMatches(typed, stored);
   }
 
   return stored == typed;
 }
 
-// Matches a typed access code against a digest or a legacy plaintext value.
+// Matches a typed access code against a hash or a legacy plaintext value.
 bool codeMatches(string typed, string stored) {
   typed = trim(typed);
   if (stored == "") {
     return false;
   }
   if (isHashed(stored)) {
-    return sha256Hex(typed) == toLower(stored);
+    return hashMatches(typed, stored);
   }
 
   return stored == typed;
@@ -1205,7 +1207,7 @@ int registerUser(string username, string password,
     return REG_FULL;
 
   userName[userCount] = username;
-  userPassword[userCount] = sha256Hex(password);
+  userPassword[userCount] = hashText(password);
   userPhone[userCount] = phone;
   userFailed[userCount] = 0;
   userLocked[userCount] = false;
@@ -1274,7 +1276,7 @@ int loginUser(string username, string password) {
 
   if (passwordMatches(password, userPassword[index])) {
     // Legacy plaintext rows are upgraded the first time they log in.
-    userPassword[index] = sha256Hex(password);
+    userPassword[index] = hashText(password);
     userFailed[index] = 0;
     return index;
   } else {
@@ -1481,7 +1483,7 @@ int reserveFoundItem(int reporterIndex, string name, string category,
   int itemIndex = foundCount - 1;
   foundLocker[itemIndex] = locker;
   issuedCode = makeDepositCode();
-  foundDepositCode[itemIndex] = sha256Hex(issuedCode);
+  foundDepositCode[itemIndex] = hashText(issuedCode);
   foundReservationExpiry[itemIndex] = (long)time(0) + 10 * 60;
   foundDepositCodeUsedAt[itemIndex] = 0;
   foundReservedAt[itemIndex] = (long)time(0);
@@ -1635,7 +1637,7 @@ int submitClaim(int claimantIndex, int itemIndex, string secretAnswer) {
     foundStatus[itemIndex] = STATUS_CLAIM_PENDING;
     foundClaimant[itemIndex] = claimantIndex;
     issuedCode = makePickupCode();
-    foundPickupCode[itemIndex] = sha256Hex(issuedCode);
+    foundPickupCode[itemIndex] = hashText(issuedCode);
     foundPickupExpiry[itemIndex] = (long)time(0) + 24 * 60 * 60;
     foundPickupFailed[itemIndex] = 0;
     foundPickupCodeUsedAt[itemIndex] = 0;
@@ -2302,7 +2304,7 @@ void showAdminMenu() {
         if (verified == 1) {
           foundStatus[item] = STATUS_CLAIM_PENDING;
           issuedCode = makePickupCode();
-          foundPickupCode[item] = sha256Hex(issuedCode);
+          foundPickupCode[item] = hashText(issuedCode);
           foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
           foundPickupFailed[item] = 0;
           foundPickupCodeUsedAt[item] = 0;
@@ -2363,7 +2365,7 @@ void showAdminMenu() {
         foundStatus[item] = STATUS_CLAIM_PENDING;
         foundClaimant[item] = claimUser[claim];
         issuedCode = makePickupCode();
-        foundPickupCode[item] = sha256Hex(issuedCode);
+        foundPickupCode[item] = hashText(issuedCode);
         foundPickupExpiry[item] = (long)time(0) + 24 * 60 * 60;
         foundPickupFailed[item] = 0;
         foundPickupCodeUsedAt[item] = 0;

@@ -12,7 +12,7 @@ kompilasi dengan library dari `mysql_config`.
 mariadb -u root -p < schema.sql
 
 g++ -std=c++11 -Wall -Wextra src/main.cpp -o lostfound \
-    $(mysql_config --libs) -lcrypto
+    $(mysql_config --libs) -lcrypt
 ./lostfound
 ```
 
@@ -22,7 +22,7 @@ di luar jalur standar:
 
 ```bash
 g++ -std=c++11 -Wall -Wextra $(mysql_config --cflags) \
-    src/main.cpp -o lostfound $(mysql_config --libs) -lcrypto
+    src/main.cpp -o lostfound $(mysql_config --libs) -lcrypt
 ```
 
 Konfigurasi koneksi dibaca dari environment (semua punya default):
@@ -46,6 +46,11 @@ dalam satu transaksi setiap ada perubahan. Skema ada di `schema.sql` (tabel
 `users`, `categories`, `locations`, `lockers`, `items`, `lost_reports`, `claims`,
 `deposits`, `access_codes`, `locker_event_logs`).
 
+Hash lama dari versi SHA-256 tidak dikenali lagi, karena bcrypt tidak bisa
+memverifikasinya. Setelah pembaruan ini, kosongkan database
+(`DROP DATABASE lostfound;` lalu muat `schema.sql` lagi) atau daftarkan ulang
+akunnya.
+
 Konsekuensi yang perlu diketahui:
 
 - Data di MySQL **tidak boleh diubah manual** saat program berjalan; perubahan
@@ -53,8 +58,9 @@ Konsekuensi yang perlu diketahui:
 - `saveAll()` menghapus lalu menulis ulang seluruh tabel. Untuk proyek ini
   ukurannya kecil; jika nanti besar, ganti dengan `INSERT ... ON DUPLICATE KEY
   UPDATE`.
-- Password dan kode loker disimpan sebagai digest SHA-256 (64 karakter hex),
-  tanpa salt. Cukup untuk latihan, belum layak untuk aplikasi nyata.
+- Password dan kode loker disimpan sebagai hash **bcrypt** (60 karakter,
+  `$2b$10$...`) lewat `crypt(3)` dari libxcrypt. Salt dibuat acak per hash, jadi
+  dua password yang sama menghasilkan hash berbeda.
 - Status disimpan apa adanya dalam bahasa Indonesia (`Tersedia`,
   `Menunggu Dititipkan`, `Disetujui`, `Diblokir`, `Dicari`, ...) karena kolom
   status di `schema.sql` bertipe `VARCHAR` tanpa enumerasi.

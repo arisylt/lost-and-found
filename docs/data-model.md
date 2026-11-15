@@ -90,7 +90,7 @@ semua tabel dalam satu transaksi setelah setiap perubahan. Skema lengkap ada di
 
 | Tabel | Array tujuan / sumber |
 | --- | --- |
-| `users` | `userName`, `userPassword` (hash), `userPhone`, `userFailed`, `userLockedUntil`, `userFullName`, `userMajor`, `userEmail`, `userRole` |
+| `users` | `userName`, `userPassword` (bcrypt), `userPhone`, `userFailed`, `userLockedUntil`, `userFullName`, `userMajor`, `userEmail`, `userRole` |
 | `lockers` | `lockerBroken` dari `status = 'Rusak'` |
 | `items` | `foundReporter` (lewat `nim_penemu`), `foundCategory`/`foundLocation` (lewat join), `foundDate`, `foundName`, `foundDescription`, `foundSecret`, `foundStatus` |
 | `lost_reports` | `lostReporter`, `lostCategory`, `lostLocation`, `lostDate`, `lostName`, `lostDescription`, `lostStatus` |
@@ -107,7 +107,9 @@ database berupa id yang di-join.
 Status disimpan apa adanya dalam bahasa Indonesia (`Tersedia`, `Menunggu
 Dititipkan`, `Disetujui`, `Diblokir`, `Dicari`, `Menunggu`/`Tersimpan`/`Diambil`
 untuk deposit, `Aktif`/`Rusak` untuk loker) karena semua kolom status di
-`schema.sql` bertipe `VARCHAR` tanpa enumerasi. Email kosong dan timestamp yang
+`schema.sql` bertipe `VARCHAR` tanpa enumerasi. Password dan kode akses disimpan
+sebagai hash bcrypt 60 karakter (`$2b$10$...`) dengan salt acak per hash, sehingga
+hash lama SHA-256 tidak lagi bisa diverifikasi. Email kosong dan timestamp yang
 belum ada menjadi `NULL`; hanya `access_codes.expires_at` dan
 `locker_event_logs.waktu` yang memakai epoch karena `NOT NULL`.
 
